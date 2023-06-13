@@ -1,6 +1,6 @@
 lassieIP="127.0.0.1"
-lassiePort=62085
-l1ShimIP="121.127.40.3"
-l1ShimPort=80
+lassiePort=7766
+l1ShimIP="127.0.0.1"
+l1ShimPort=10361
 l1NginxIP="127.0.0.1"
-l1NginxPort=1000
+l1NginxPort=8043
