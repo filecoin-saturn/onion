@@ -1,0 +1,166 @@
+{
+ "/ipfs/bafybeihhicuoi53f2qfxg4yojdcswroggwmkdmpwwyp2632aj5ed5hzdxq": {
+  "KuboGWResult": null,
+  "LassieResult": null,
+  "L1ShimResult": {
+   "Url": "http://121.127.40.3:80/ipfs/bafybeihhicuoi53f2qfxg4yojdcswroggwmkdmpwwyp2632aj5ed5hzdxq?format=car\u0026dag-scope=block\u0026car-scope=block\u0026depth=0",
+   "StatusCode": 200,
+   "Headers": {
+    "Access-Control-Allow-Headers": [
+     "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range"
+    ],
+    "Access-Control-Allow-Methods": [
+     "GET, POST, OPTIONS"
+    ],
+    "Access-Control-Allow-Origin": [
+     "*"
+    ],
+    "Access-Control-Expose-Headers": [
+     "*"
+    ],
+    "Cache-Control": [
+     "public, max-age=29030400, immutable"
+    ],
+    "Connection": [
+     "keep-alive"
+    ],
+    "Content-Disposition": [
+     "attachment; filename=\"bafybeihhicuoi53f2qfxg4yojdcswroggwmkdmpwwyp2632aj5ed5hzdxq.car\""
+    ],
+    "Content-Type": [
+     "application/vnd.ipld.car; version=1"
+    ],
+    "Date": [
+     "Tue, 13 Jun 2023 12:53:52 GMT"
+    ],
+    "Etag": [
+     "\"bafybeihhicuoi53f2qfxg4yojdcswroggwmkdmpwwyp2632aj5ed5hzdxq.car.7qlr7iepkr41f\""
+    ],
+    "Saturn-Cache-Status": [
+     "HIT"
+    ],
+    "Saturn-Node-Id": [
+     "f666a0b3-a80e-4df5-85b3-665f2cf28f3a"
+    ],
+    "Saturn-Node-Version": [
+     "940_453fa75"
+    ],
+    "Saturn-Transfer-Id": [
+     "8188a894306bb69429b1f5482b354fad"
+    ],
+    "Server": [
+     "nginx"
+    ],
+    "Server-Timing": [
+     "fetch;dur=0.017272,indexer;dur=0.000044;candidates-found=206162064;candidates-filtered=206268840,retrieval;dur=142.503176;first-byte-received=332538083",
+     "shim; dur=338.42255",
+     "shim_lassie; dur=338.383467",
+     "shim_lassie_headers; dur=338.281503",
+     "shim_lassie_body; dur=3.154613",
+     "nginx;dur=0, nginx_uct;dur=, nginx_uht;dur=, nginx_urt;dur="
+    ],
+    "Strict-Transport-Security": [
+     "max-age=63072000; includeSubDomains; preload"
+    ],
+    "Timing-Allow-Origin": [
+     "*"
+    ],
+    "X-Content-Type-Options": [
+     "nosniff"
+    ],
+    "X-Ipfs-Path": [
+     "/ipfs/bafybeihhicuoi53f2qfxg4yojdcswroggwmkdmpwwyp2632aj5ed5hzdxq"
+    ]
+   },
+   "ErrorBody": ""
+  },
+  "L1NginxResult": {
+   "Url": "http://127.0.0.1:1000/ipfs/bafybeihhicuoi53f2qfxg4yojdcswroggwmkdmpwwyp2632aj5ed5hzdxq?format=car\u0026dag-scope=block\u0026car-scope=block\u0026depth=0",
+   "StatusCode": 0,
+   "Headers": null,
+   "ErrorBody": "error sending request: Get \"http://127.0.0.1:1000/ipfs/bafybeihhicuoi53f2qfxg4yojdcswroggwmkdmpwwyp2632aj5ed5hzdxq?format=car\u0026dag-scope=block\u0026car-scope=block\u0026depth=0\": dial tcp 127.0.0.1:1000: connect: connection refused"
+  }
+ },
+ "/ipfs/bafybeihhicuoi53f2qfxg4yojdcswroggwmkdmpwwyp2632aj5ed5hzdxq/239.json": {
+  "KuboGWResult": null,
+  "LassieResult": null,
+  "L1ShimResult": {
+   "Url": "http://121.127.40.3:80/ipfs/bafybeihhicuoi53f2qfxg4yojdcswroggwmkdmpwwyp2632aj5ed5hzdxq/239.json?format=car\u0026dag-scope=all\u0026car-scope=all\u0026depth=all",
+   "StatusCode": 200,
+   "Headers": {
+    "Access-Control-Allow-Headers": [
+     "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range"
+    ],
+    "Access-Control-Allow-Methods": [
+     "GET, POST, OPTIONS"
+    ],
+    "Access-Control-Allow-Origin": [
+     "*"
+    ],
+    "Access-Control-Expose-Headers": [
+     "*"
+    ],
+    "Cache-Control": [
+     "public, max-age=29030400, immutable"
+    ],
+    "Connection": [
+     "keep-alive"
+    ],
+    "Content-Disposition": [
+     "attachment; filename=\"bafybeihhicuoi53f2qfxg4yojdcswroggwmkdmpwwyp2632aj5ed5hzdxq.car\""
+    ],
+    "Content-Type": [
+     "application/vnd.ipld.car; version=1"
+    ],
+    "Date": [
+     "Tue, 13 Jun 2023 12:53:52 GMT"
+    ],
+    "Etag": [
+     "\"bafybeihhicuoi53f2qfxg4yojdcswroggwmkdmpwwyp2632aj5ed5hzdxq.car.dmv8kbfvhd0tc\""
+    ],
+    "Saturn-Cache-Status": [
+     "HIT"
+    ],
+    "Saturn-Node-Id": [
+     "f666a0b3-a80e-4df5-85b3-665f2cf28f3a"
+    ],
+    "Saturn-Node-Version": [
+     "940_453fa75"
+    ],
+    "Saturn-Transfer-Id": [
+     "5eb8ff4757061a2f44252ef5947b9045"
+    ],
+    "Server": [
+     "nginx"
+    ],
+    "Server-Timing": [
+     "fetch;dur=0.039744,indexer;dur=0.000047;candidates-found=206769672;candidates-filtered=206887816,retrieval;dur=143.287421;first-byte-received=333223126",
+     "shim; dur=347.65856099999996",
+     "shim_lassie; dur=347.295821",
+     "shim_lassie_headers; dur=346.615877",
+     "shim_lassie_body; dur=4.264678",
+     "nginx;dur=0, nginx_uct;dur=, nginx_uht;dur=, nginx_urt;dur="
+    ],
+    "Strict-Transport-Security": [
+     "max-age=63072000; includeSubDomains; preload"
+    ],
+    "Timing-Allow-Origin": [
+     "*"
+    ],
+    "X-Content-Type-Options": [
+     "nosniff"
+    ],
+    "X-Ipfs-Path": [
+     "/ipfs/bafybeihhicuoi53f2qfxg4yojdcswroggwmkdmpwwyp2632aj5ed5hzdxq/239.json"
+    ]
+   },
+   "ErrorBody": ""
+  },
+  "L1NginxResult": {
+   "Url": "http://127.0.0.1:1000/ipfs/bafybeihhicuoi53f2qfxg4yojdcswroggwmkdmpwwyp2632aj5ed5hzdxq/239.json?format=car\u0026dag-scope=all\u0026car-scope=all\u0026depth=all",
+   "StatusCode": 0,
+   "Headers": null,
+   "ErrorBody": "error sending request: Get \"http://127.0.0.1:1000/ipfs/bafybeihhicuoi53f2qfxg4yojdcswroggwmkdmpwwyp2632aj5ed5hzdxq/239.json?format=car\u0026dag-scope=all\u0026car-scope=all\u0026depth=all\": dial tcp 127.0.0.1:1000: connect: connection refused"
+  }
+ }
+}

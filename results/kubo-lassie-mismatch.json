@@ -1,0 +1,196 @@
+{
+ "/ipfs/bafkreiaj557z3vxw4ajtfg2cb3wirz5yrb3yf7xqr5l7h32ftufpncdmyy": {
+  "KuboGWResult": {
+   "Url": "https://ipfs.io/ipfs/bafkreiaj557z3vxw4ajtfg2cb3wirz5yrb3yf7xqr5l7h32ftufpncdmyy",
+   "StatusCode": 200,
+   "Headers": {
+    "Accept-Ranges": [
+     "bytes"
+    ],
+    "Access-Control-Allow-Headers": [
+     "X-Requested-With, Range, Content-Range, X-Chunked-Output, X-Stream-Output"
+    ],
+    "Access-Control-Allow-Methods": [
+     "GET",
+     "GET, POST, OPTIONS"
+    ],
+    "Access-Control-Allow-Origin": [
+     "*"
+    ],
+    "Access-Control-Expose-Headers": [
+     "Content-Range, X-Chunked-Output, X-Stream-Output"
+    ],
+    "Cache-Control": [
+     "public, max-age=29030400, immutable"
+    ],
+    "Content-Length": [
+     "262144"
+    ],
+    "Content-Type": [
+     "application/octet-stream"
+    ],
+    "Date": [
+     "Tue, 13 Jun 2023 12:53:52 GMT"
+    ],
+    "Etag": [
+     "\"bafkreiaj557z3vxw4ajtfg2cb3wirz5yrb3yf7xqr5l7h32ftufpncdmyy\""
+    ],
+    "Server": [
+     "openresty"
+    ],
+    "Strict-Transport-Security": [
+     "max-age=31536000; includeSubDomains; preload"
+    ],
+    "Timing-Allow-Origin": [
+     "*"
+    ],
+    "X-Bfid": [
+     "440cc38d637d3f85a8f2e053fde83fc1"
+    ],
+    "X-Ipfs-Datasize": [
+     "262144"
+    ],
+    "X-Ipfs-Gateway-Host": [
+     "ipfs-bank11-am6"
+    ],
+    "X-Ipfs-Lb-Pop": [
+     "gateway-bank2-am6"
+    ],
+    "X-Ipfs-Path": [
+     "/ipfs/bafkreiaj557z3vxw4ajtfg2cb3wirz5yrb3yf7xqr5l7h32ftufpncdmyy"
+    ],
+    "X-Ipfs-Pop": [
+     "ipfs-bank11-am6"
+    ],
+    "X-Ipfs-Roots": [
+     "bafkreiaj557z3vxw4ajtfg2cb3wirz5yrb3yf7xqr5l7h32ftufpncdmyy"
+    ],
+    "X-Proxy-Cache": [
+     "HIT"
+    ]
+   },
+   "ErrorBody": ""
+  },
+  "LassieResult": {
+   "Url": "http://127.0.0.1:62085/ipfs/bafkreiaj557z3vxw4ajtfg2cb3wirz5yrb3yf7xqr5l7h32ftufpncdmyy?format=car\u0026dag-scope=block\u0026car-scope=block\u0026depth=0",
+   "StatusCode": 504,
+   "Headers": {
+    "Content-Length": [
+     "107"
+    ],
+    "Content-Type": [
+     "text/plain; charset=utf-8"
+    ],
+    "Date": [
+     "Tue, 13 Jun 2023 12:54:11 GMT"
+    ],
+    "Server-Timing": [
+     "fetch;dur=0.09146;finished=20000777493,indexer;dur=0.00015;candidates-found=626795626;candidates-filtered=626819373,retrieval;dur=626.75356;connected=625968333;first-byte-received=1005249491;failure=20000403322;started=625944677"
+    ],
+    "X-Content-Type-Options": [
+     "nosniff"
+    ]
+   },
+   "ErrorBody": "failed to fetch CID: all retrievals failed; CAR root CID mismatch; all retrievals failed; context canceled\n"
+  },
+  "L1ShimResult": null,
+  "L1NginxResult": null
+ },
+ "/ipfs/bafkreid3bzqe4uy55onywg3e2ncjbubs2h4sda3d77fafcskoqrebhwdw4": {
+  "KuboGWResult": {
+   "Url": "https://ipfs.io/ipfs/bafkreid3bzqe4uy55onywg3e2ncjbubs2h4sda3d77fafcskoqrebhwdw4",
+   "StatusCode": 200,
+   "Headers": {
+    "Accept-Ranges": [
+     "bytes"
+    ],
+    "Access-Control-Allow-Headers": [
+     "X-Requested-With, Range, Content-Range, X-Chunked-Output, X-Stream-Output"
+    ],
+    "Access-Control-Allow-Methods": [
+     "GET",
+     "GET, POST, OPTIONS"
+    ],
+    "Access-Control-Allow-Origin": [
+     "*"
+    ],
+    "Access-Control-Expose-Headers": [
+     "Content-Range, X-Chunked-Output, X-Stream-Output"
+    ],
+    "Cache-Control": [
+     "public, max-age=29030400, immutable"
+    ],
+    "Content-Length": [
+     "262144"
+    ],
+    "Content-Type": [
+     "application/octet-stream"
+    ],
+    "Date": [
+     "Tue, 13 Jun 2023 12:53:52 GMT"
+    ],
+    "Etag": [
+     "\"bafkreid3bzqe4uy55onywg3e2ncjbubs2h4sda3d77fafcskoqrebhwdw4\""
+    ],
+    "Server": [
+     "openresty"
+    ],
+    "Strict-Transport-Security": [
+     "max-age=31536000; includeSubDomains; preload"
+    ],
+    "Timing-Allow-Origin": [
+     "*"
+    ],
+    "X-Bfid": [
+     "c33eb2f668344da351b4881f05793dd0"
+    ],
+    "X-Ipfs-Datasize": [
+     "262144"
+    ],
+    "X-Ipfs-Gateway-Host": [
+     "ipfs-bank12-am6"
+    ],
+    "X-Ipfs-Lb-Pop": [
+     "gateway-bank2-am6"
+    ],
+    "X-Ipfs-Path": [
+     "/ipfs/bafkreid3bzqe4uy55onywg3e2ncjbubs2h4sda3d77fafcskoqrebhwdw4"
+    ],
+    "X-Ipfs-Pop": [
+     "ipfs-bank12-am6"
+    ],
+    "X-Ipfs-Roots": [
+     "bafkreid3bzqe4uy55onywg3e2ncjbubs2h4sda3d77fafcskoqrebhwdw4"
+    ],
+    "X-Proxy-Cache": [
+     "HIT"
+    ]
+   },
+   "ErrorBody": ""
+  },
+  "LassieResult": {
+   "Url": "http://127.0.0.1:62085/ipfs/bafkreid3bzqe4uy55onywg3e2ncjbubs2h4sda3d77fafcskoqrebhwdw4?format=car\u0026dag-scope=block\u0026car-scope=block\u0026depth=0",
+   "StatusCode": 504,
+   "Headers": {
+    "Content-Length": [
+     "107"
+    ],
+    "Content-Type": [
+     "text/plain; charset=utf-8"
+    ],
+    "Date": [
+     "Tue, 13 Jun 2023 12:54:11 GMT"
+    ],
+    "Server-Timing": [
+     "fetch;dur=0.21123;finished=20000840479,indexer;dur=0.00015;candidates-filtered=862331358;candidates-found=862288656,retrieval;dur=862.430797;first-byte-received=1097577662;failure=20000244946;started=862617769;connected=862632440"
+    ],
+    "X-Content-Type-Options": [
+     "nosniff"
+    ]
+   },
+   "ErrorBody": "failed to fetch CID: all retrievals failed; CAR root CID mismatch; all retrievals failed; context canceled\n"
+  },
+  "L1ShimResult": null,
+  "L1NginxResult": null
+ }
+}
