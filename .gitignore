@@ -18,6 +18,9 @@
 # vendor/
 results*/
 cmd/onion/onion
+onion*
+main*
+out.txt
 
 # Go workspace file
 go.work

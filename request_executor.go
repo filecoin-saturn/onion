@@ -252,11 +252,26 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 		}
 	}
 
+	writePathsF := func(mismatch []string, filename string) {
+		jsonData, err := json.MarshalIndent(mismatch, "", " ")
+		if err != nil {
+			panic(err)
+		}
+
+		if err := os.WriteFile(filename, jsonData, 0755); err != nil {
+			panic(err)
+		}
+	}
+
 	res := re.results
 
 	kuboLassieMismatch := make(map[string]Results)
 	lassiShimMismatch := make(map[string]Results)
 	shimNginxMismatch := make(map[string]Results)
+
+	var klMismatchPaths []string
+	var lsMismatchPaths []string
+	var snMismatchPaths []string
 
 	type Result2xx struct {
 		kubo   int
@@ -292,6 +307,7 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 			rm.LassieResult = results.LassieResult
 
 			kuboLassieMismatch[path] = rm
+			klMismatchPaths = append(klMismatchPaths, path)
 		}
 
 		if results.LassieResult.StatusCode == http.StatusOK && results.L1ShimResult.StatusCode != http.StatusOK {
@@ -299,6 +315,7 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 			rm.LassieResult = results.LassieResult
 			rm.L1ShimResult = results.L1ShimResult
 			lassiShimMismatch[path] = rm
+			lsMismatchPaths = append(lsMismatchPaths, path)
 		}
 
 		if results.L1ShimResult.StatusCode == http.StatusOK && results.L1NginxResult.StatusCode != http.StatusOK {
@@ -306,6 +323,7 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 			rm.L1ShimResult = results.L1ShimResult
 			rm.L1NginxResult = results.L1NginxResult
 			shimNginxMismatch[path] = rm
+			snMismatchPaths = append(snMismatchPaths, path)
 		}
 	}
 
@@ -317,6 +335,10 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 	writeMismatchF(lassiShimMismatch, ls)
 	writeMismatchF(shimNginxMismatch, sn)
 
+	writePathsF(klMismatchPaths, fmt.Sprintf("%s/kubo-lassie-mismatch-paths.json", re.dir))
+	writePathsF(lsMismatchPaths, fmt.Sprintf("%s/lassie-shim-mismatch-paths.json", re.dir))
+	writePathsF(snMismatchPaths, fmt.Sprintf("%s/shim-nginx-mismatch-paths.json", re.dir))
+
 	fmt.Printf("\n Run-%d; Total Unique Requests: %d", re.n, len(res))
 	fmt.Printf("\n Run-%d; Total 2xx from Kubo GW: %d", re.n, result2xx.kubo)
 	fmt.Printf("\n Run-%d; Total 2xx from Lassie: %d", re.n, result2xx.lassie)
@@ -326,4 +348,33 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 	fmt.Printf("\n Run-%d; Kubo Lassie Mismatch: %d", re.n, len(kuboLassieMismatch))
 	fmt.Printf("\n Run-%d; Lassie Shim Mismatch: %d", re.n, len(lassiShimMismatch))
 	fmt.Printf("\n Run-%d; Shim Nginx Mismatch: %d", re.n, len(shimNginxMismatch))
+
+	toplLevel := struct {
+		Kubo2XX   int
+		Lassie2XX int
+		Shim2XX   int
+		Nginx2XX  int
+
+		KuboLassieMismatch int
+		LassieShimMismatch int
+		ShimNginxMismatch  int
+	}{
+		Kubo2XX:            result2xx.kubo,
+		Lassie2XX:          result2xx.lassie,
+		Shim2XX:            result2xx.shim,
+		Nginx2XX:           result2xx.nginx,
+		KuboLassieMismatch: len(kuboLassieMismatch),
+		LassieShimMismatch: len(lassiShimMismatch),
+		ShimNginxMismatch:  len(shimNginxMismatch),
+	}
+	bz, err := json.MarshalIndent(toplLevel, "", " ")
+	if err != nil {
+		panic(err)
+	}
+
+	if err := os.WriteFile(fmt.Sprintf("%s/top-level-metrics.json", re.dir), bz, 0755); err != nil {
+		panic(err)
+	}
+
+	// write mismatched paths separately
 }

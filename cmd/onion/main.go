@@ -34,9 +34,10 @@ type Config struct {
 }
 
 func main() {
+	fmt.Println("Starting Onions...\n")
 	// Define flags
-	count := flag.Int("count", 0, "Count of requests to send to each component")
-	fileName := flag.String("replay_file", "", "Name of replay file to use")
+	count := flag.Int("c", 0, "Count of requests to send to each component")
+	fileName := flag.String("f", "", "Name of replay file to use")
 	nRuns := flag.Int("n_runs", 0, "Number of times to run the test")
 
 	// Parse the flags
@@ -70,8 +71,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	err := os.MkdirAll("results", 0755)
+	if err != nil {
+		panic(err)
+	}
+
 	for i := 0; i < n; i++ {
-		dir := fmt.Sprintf("results-%d", i+1)
+		dir := fmt.Sprintf("results/results-%d", i+1)
 		err := os.MkdirAll(dir, 0755)
 		if err != nil {
 			panic(err)
