@@ -13,7 +13,7 @@ import (
 	"go.uber.org/atomic"
 )
 
-var defaultConcurrency = 5
+var defaultConcurrency = 8
 
 type Result struct {
 	Url        string
