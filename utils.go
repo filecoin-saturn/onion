@@ -49,7 +49,7 @@ func (b *URLBuilder) BuildL1ShimUrl(bifrostUrl string) string {
 
 func (b *URLBuilder) BuildL1NginxUrl(bifrostUrl string) string {
 	u := replaceIPInURL(bifrostUrl, b.l1NginxIP)
-	u = switchHTTPStoHTTP(u)
+	u = switchHTTPtoHTTPS(u)
 	return u
 }
 
@@ -67,6 +67,10 @@ func (b *URLBuilder) BuildKuboGWUrl(bifrostUrl string) string {
 
 func switchHTTPStoHTTP(u string) string {
 	return strings.Replace(u, "https://", "http://", -1)
+}
+
+func switchHTTPtoHTTPS(u string) string {
+	return strings.Replace(u, "http://", "https://", -1)
 }
 
 func replaceIPInURL(s, newIP string) string {

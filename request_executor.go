@@ -1,14 +1,16 @@
 package onion
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"go.uber.org/atomic"
 	"io"
 	"net/http"
 	"os"
 	"sync"
 	"time"
+
+	"go.uber.org/atomic"
 )
 
 var defaultConcurrency = 5
@@ -46,6 +48,7 @@ func NewRequestExecutor(reqs map[string]URLsToTest, n int, dir string) *RequestE
 			MaxIdleConnsPerHost: 1000,
 			MaxIdleConns:        1000,
 			IdleConnTimeout:     5 * time.Minute,
+			TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
 		},
 		Timeout: 3 * time.Minute,
 	}
