@@ -40,15 +40,15 @@ func main() {
 	count := flag.Int("c", 0, "Count of requests to send to each component")
 	fileName := flag.String("f", "", "Name of replay file to use")
 	nRuns := flag.Int("n_runs", 0, "Number of times to run the test")
-	keepBody := flag.Bool("body", false, "Whether to keep the response body or not")
+	bodyMode := flag.Int("body", 0, "Whether to drop the body (0); compare body sizes (1); or compare byte-by-byte (2)")
 
 	// Parse the flags
 	flag.Parse()
 	c := *count
 	f := *fileName
 	n := *nRuns
-	b := *keepBody
-	fmt.Printf("count: %d, fileName: %s, nRuns: %d, keepBody: %t\n", c, f, n, b)
+	bm := *bodyMode
+	fmt.Printf("count: %d, fileName: %s, nRuns: %d, bodyMode: %d\n", c, f, n, bm)
 	if c == 0 || len(f) == 0 || n == 0 {
 		fmt.Printf("Usage: onion -count <count> -replay_file <replay_file> -n_runs <n_runs> -body <keep_body>\n")
 		os.Exit(1)
@@ -85,7 +85,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		re := onion.NewRequestExecutor(reqs, i+1, dir, b)
+		re := onion.NewRequestExecutor(reqs, i+1, dir, onion.BodyMode(bm))
 		re.Execute()
 		re.WriteResultsToFile()
 		re.WriteMismatchesToFile()

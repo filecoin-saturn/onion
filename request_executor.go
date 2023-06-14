@@ -22,7 +22,8 @@ type Result struct {
 	Headers    map[string][]string
 	ErrorBody  string
 	// this might be an issue if the body proves too big to fit in memory
-	Body []byte `json:"-"`
+	Body     []byte `json:"-"`
+	BodySize int    `json:"-"`
 }
 
 type Results struct {
@@ -32,12 +33,20 @@ type Results struct {
 	L1NginxResult *Result
 }
 
+type BodyMode int
+
+const (
+	DropBody BodyMode = iota
+	KeepBodySize
+	KeepWholeBody
+)
+
 type RequestExecutor struct {
-	dir         string
-	n           int
-	wg          sync.WaitGroup
-	reqs        map[string]URLsToTest
-	keepResBody bool
+	dir      string
+	n        int
+	wg       sync.WaitGroup
+	reqs     map[string]URLsToTest
+	bodyMode BodyMode
 
 	client *http.Client
 
@@ -45,7 +54,7 @@ type RequestExecutor struct {
 	results map[string]*Results
 }
 
-func NewRequestExecutor(reqs map[string]URLsToTest, n int, dir string, rbm bool) *RequestExecutor {
+func NewRequestExecutor(reqs map[string]URLsToTest, n int, dir string, bm BodyMode) *RequestExecutor {
 	client := &http.Client{
 		Transport: &http.Transport{
 			MaxConnsPerHost:     1000,
@@ -58,12 +67,12 @@ func NewRequestExecutor(reqs map[string]URLsToTest, n int, dir string, rbm bool)
 	}
 
 	return &RequestExecutor{
-		dir:         dir,
-		n:           n,
-		reqs:        reqs,
-		results:     make(map[string]*Results),
-		client:      client,
-		keepResBody: rbm,
+		dir:      dir,
+		n:        n,
+		reqs:     reqs,
+		results:  make(map[string]*Results),
+		client:   client,
+		bodyMode: bm,
 	}
 }
 
@@ -183,7 +192,7 @@ func (re *RequestExecutor) executeHTTPRequest(url string) (result Result) {
 		return
 	}
 	defer resp.Body.Close()
-	if !re.keepResBody {
+	if re.bodyMode == DropBody {
 		defer io.Copy(io.Discard, resp.Body)
 	}
 
@@ -195,7 +204,12 @@ func (re *RequestExecutor) executeHTTPRequest(url string) (result Result) {
 		if err == nil {
 			result.ErrorBody = string(errBody)
 		}
-	} else if re.keepResBody {
+	} else if re.bodyMode == KeepBodySize {
+		body, err := readBody(&result, resp)
+		if err == nil {
+			result.BodySize = len(body)
+		}
+	} else if re.bodyMode == KeepWholeBody {
 		body, err := readBody(&result, resp)
 		if err == nil {
 			result.Body = body
@@ -349,16 +363,31 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 
 		// response size mismatches
 		// assuming Kubo is the source of truth in terms of response body size
-		if !bytes.Equal(results.KuboGWResult.Body, results.LassieResult.Body) {
-			resultRespSizeMismatch.lassie++
-		}
+		switch re.bodyMode {
+		case KeepBodySize:
+			if results.KuboGWResult.BodySize != results.LassieResult.BodySize {
+				resultRespSizeMismatch.lassie++
+			}
 
-		if !bytes.Equal(results.LassieResult.Body, results.L1ShimResult.Body) {
-			resultRespSizeMismatch.shim++
-		}
+			if results.LassieResult.BodySize != results.L1ShimResult.BodySize {
+				resultRespSizeMismatch.shim++
+			}
 
-		if !bytes.Equal(results.L1ShimResult.Body, results.L1NginxResult.Body) {
-			resultRespSizeMismatch.nginx++
+			if results.L1ShimResult.BodySize != results.L1NginxResult.BodySize {
+				resultRespSizeMismatch.nginx++
+			}
+		case KeepWholeBody:
+			if !bytes.Equal(results.KuboGWResult.Body, results.LassieResult.Body) {
+				resultRespSizeMismatch.lassie++
+			}
+
+			if !bytes.Equal(results.LassieResult.Body, results.L1ShimResult.Body) {
+				resultRespSizeMismatch.shim++
+			}
+
+			if !bytes.Equal(results.L1ShimResult.Body, results.L1NginxResult.Body) {
+				resultRespSizeMismatch.nginx++
+			}
 		}
 	}
 
@@ -384,7 +413,7 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 	fmt.Printf("\n Run-%d; Lassie Shim Response Code Mismatch: %d", re.n, len(lassiShimMismatch))
 	fmt.Printf("\n Run-%d; Shim Nginx Response Code Mismatch: %d", re.n, len(shimNginxMismatch))
 
-	if re.keepResBody {
+	if re.bodyMode != DropBody {
 		fmt.Printf("\n Run-%d; Kubo Lassie Response Body Mismatch: %d", re.n, resultRespSizeMismatch.lassie)
 		fmt.Printf("\n Run-%d; Lassie Shim Response Body Mismatch: %d", re.n, resultRespSizeMismatch.shim)
 		fmt.Printf("\n Run-%d; Shim Nginx Response Body Mismatch: %d", re.n, resultRespSizeMismatch.nginx)
