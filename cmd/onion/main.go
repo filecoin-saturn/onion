@@ -4,13 +4,14 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"github.com/filecoin-saturn/onion"
-	"github.com/pelletier/go-toml"
-	"github.com/prometheus/client_golang/prometheus"
 	"io"
 	"net"
 	"os"
 	"strings"
+
+	"github.com/filecoin-saturn/onion"
+	"github.com/pelletier/go-toml"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
@@ -39,15 +40,17 @@ func main() {
 	count := flag.Int("c", 0, "Count of requests to send to each component")
 	fileName := flag.String("f", "", "Name of replay file to use")
 	nRuns := flag.Int("n_runs", 0, "Number of times to run the test")
+	keepBody := flag.Bool("body", false, "Whether to keep the response body or not")
 
 	// Parse the flags
 	flag.Parse()
 	c := *count
 	f := *fileName
 	n := *nRuns
-	fmt.Printf("count: %d, fileName: %s, nRuns:%d\n", c, f, n)
+	b := *keepBody
+	fmt.Printf("count: %d, fileName: %s, nRuns: %d, keepBody: %t\n", c, f, n, b)
 	if c == 0 || len(f) == 0 || n == 0 {
-		fmt.Printf("Usage: onion -count <count> -replay_file <replay_file> -n_runs <n_runs>\n")
+		fmt.Printf("Usage: onion -count <count> -replay_file <replay_file> -n_runs <n_runs> -body <keep_body>\n")
 		os.Exit(1)
 	}
 
@@ -82,7 +85,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		re := onion.NewRequestExecutor(reqs, i+1, dir)
+		re := onion.NewRequestExecutor(reqs, i+1, dir, b)
 		re.Execute()
 		re.WriteResultsToFile()
 		re.WriteMismatchesToFile()

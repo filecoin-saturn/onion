@@ -1,6 +1,7 @@
 package onion
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -20,6 +21,8 @@ type Result struct {
 	StatusCode int
 	Headers    map[string][]string
 	ErrorBody  string
+	// this might be an issue if the body proves too big to fit in memory
+	Body []byte `json:"-"`
 }
 
 type Results struct {
@@ -30,10 +33,11 @@ type Results struct {
 }
 
 type RequestExecutor struct {
-	dir  string
-	n    int
-	wg   sync.WaitGroup
-	reqs map[string]URLsToTest
+	dir         string
+	n           int
+	wg          sync.WaitGroup
+	reqs        map[string]URLsToTest
+	keepResBody bool
 
 	client *http.Client
 
@@ -41,7 +45,7 @@ type RequestExecutor struct {
 	results map[string]*Results
 }
 
-func NewRequestExecutor(reqs map[string]URLsToTest, n int, dir string) *RequestExecutor {
+func NewRequestExecutor(reqs map[string]URLsToTest, n int, dir string, rbm bool) *RequestExecutor {
 	client := &http.Client{
 		Transport: &http.Transport{
 			MaxConnsPerHost:     1000,
@@ -54,11 +58,12 @@ func NewRequestExecutor(reqs map[string]URLsToTest, n int, dir string) *RequestE
 	}
 
 	return &RequestExecutor{
-		dir:     dir,
-		n:       n,
-		reqs:    reqs,
-		results: make(map[string]*Results),
-		client:  client,
+		dir:         dir,
+		n:           n,
+		reqs:        reqs,
+		results:     make(map[string]*Results),
+		client:      client,
+		keepResBody: rbm,
 	}
 }
 
@@ -158,6 +163,15 @@ func (c *concurrentExecution) do(path, url, name string) {
 	}()
 }
 
+func readBody(result *Result, resp *http.Response) ([]byte, error) {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		result.ErrorBody = fmt.Sprintf("error reading response body: %s", err.Error())
+		return nil, err
+	}
+	return body, nil
+}
+
 func (re *RequestExecutor) executeHTTPRequest(url string) (result Result) {
 	result = Result{
 		Url: url,
@@ -169,18 +183,23 @@ func (re *RequestExecutor) executeHTTPRequest(url string) (result Result) {
 		return
 	}
 	defer resp.Body.Close()
-	defer io.Copy(io.Discard, resp.Body)
+	if !re.keepResBody {
+		defer io.Copy(io.Discard, resp.Body)
+	}
 
 	result.Headers = resp.Header
 	result.StatusCode = resp.StatusCode
 
 	if resp.StatusCode != http.StatusOK {
-		errBody, err := io.ReadAll(resp.Body)
-		if err != nil {
-			result.ErrorBody = fmt.Sprintf("error reading response body: %s", err.Error())
-			return
+		errBody, err := readBody(&result, resp)
+		if err == nil {
+			result.ErrorBody = string(errBody)
 		}
-		result.ErrorBody = string(errBody)
+	} else if re.keepResBody {
+		body, err := readBody(&result, resp)
+		if err == nil {
+			result.Body = body
+		}
 	}
 	return
 }
@@ -273,18 +292,20 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 	var lsMismatchPaths []string
 	var snMismatchPaths []string
 
-	type Result2xx struct {
+	type ResultCount struct {
 		kubo   int
 		lassie int
 		shim   int
 		nginx  int
 	}
 
-	result2xx := Result2xx{}
+	result2xx := ResultCount{}
+	resultRespSizeMismatch := ResultCount{}
 
 	for path, results := range res {
 		results := *results
 
+		// response code mismatches
 		if results.KuboGWResult.StatusCode == http.StatusOK {
 			result2xx.kubo++
 		}
@@ -325,6 +346,20 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 			shimNginxMismatch[path] = rm
 			snMismatchPaths = append(snMismatchPaths, path)
 		}
+
+		// response size mismatches
+		// assuming Kubo is the source of truth in terms of response body size
+		if !bytes.Equal(results.KuboGWResult.Body, results.LassieResult.Body) {
+			resultRespSizeMismatch.lassie++
+		}
+
+		if !bytes.Equal(results.LassieResult.Body, results.L1ShimResult.Body) {
+			resultRespSizeMismatch.shim++
+		}
+
+		if !bytes.Equal(results.L1ShimResult.Body, results.L1NginxResult.Body) {
+			resultRespSizeMismatch.nginx++
+		}
 	}
 
 	kl := fmt.Sprintf("%s/kubo-lassie-mismatch.json", re.dir)
@@ -345,9 +380,15 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 	fmt.Printf("\n Run-%d; Total 2xx from L1 Shim: %d", re.n, result2xx.shim)
 	fmt.Printf("\n Run-%d; Total 2xx from L1 Nginx: %d", re.n, result2xx.nginx)
 
-	fmt.Printf("\n Run-%d; Kubo Lassie Mismatch: %d", re.n, len(kuboLassieMismatch))
-	fmt.Printf("\n Run-%d; Lassie Shim Mismatch: %d", re.n, len(lassiShimMismatch))
-	fmt.Printf("\n Run-%d; Shim Nginx Mismatch: %d", re.n, len(shimNginxMismatch))
+	fmt.Printf("\n Run-%d; Kubo Lassie Response Code Mismatch: %d", re.n, len(kuboLassieMismatch))
+	fmt.Printf("\n Run-%d; Lassie Shim Response Code Mismatch: %d", re.n, len(lassiShimMismatch))
+	fmt.Printf("\n Run-%d; Shim Nginx Response Code Mismatch: %d", re.n, len(shimNginxMismatch))
+
+	if re.keepResBody {
+		fmt.Printf("\n Run-%d; Kubo Lassie Response Body Mismatch: %d", re.n, resultRespSizeMismatch.lassie)
+		fmt.Printf("\n Run-%d; Lassie Shim Response Body Mismatch: %d", re.n, resultRespSizeMismatch.shim)
+		fmt.Printf("\n Run-%d; Shim Nginx Response Body Mismatch: %d", re.n, resultRespSizeMismatch.nginx)
+	}
 
 	toplLevel := struct {
 		Kubo2XX   int
