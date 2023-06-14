@@ -34,34 +34,57 @@ type Config struct {
 }
 
 func main() {
+	// Define flags
+	count := flag.Int("count", 0, "Count of requests to send to each component")
+	fileName := flag.String("replay_file", "", "Name of replay file to use")
+	nRuns := flag.Int("n_runs", 0, "Number of times to run the test")
+
+	// Parse the flags
 	flag.Parse()
+	c := *count
+	f := *fileName
+	n := *nRuns
+	fmt.Printf("count: %d, fileName: %s, nRuns:%d\n", c, f, n)
+	if c == 0 || len(f) == 0 || n == 0 {
+		fmt.Printf("Usage: onion -count <count> -replay_file <replay_file> -n_runs <n_runs>\n")
+		os.Exit(1)
+	}
 
 	cfg := getConfig()
 	fmt.Printf("parsed host:ports are:\n <Lassie> %s \n <L1Shim> %s \n <L1Nginx> %s\n", cfg.LassieHostPort, cfg.L1ShimHostPort, cfg.L1NginxHostPort)
 	reqs := make(map[string]onion.URLsToTest)
 
-	bifrostReqUrls := readBifrostReqURLs()
+	bifrostReqUrls := readBifrostReqURLs(f)
 	ub := onion.NewURLBuilder(cfg.LassieHostPort, cfg.L1ShimHostPort, cfg.L1NginxHostPort)
 
-	for _, u := range bifrostReqUrls[:20] {
+	for _, u := range bifrostReqUrls {
 		o := ub.BuildURLsToTest(u)
 		key := o.Path
 		reqs[key] = o
+		if len(reqs) == c {
+			break
+		}
+	}
+	if len(reqs) < c {
+		fmt.Printf("Not enough requests to send to components. Requested: %d, Available: %d\n", c, len(reqs))
+		os.Exit(1)
 	}
 
-	err := os.MkdirAll("results", 0755)
-	if err != nil {
-		panic(err)
+	for i := 0; i < n; i++ {
+		dir := fmt.Sprintf("results-%d", i+1)
+		err := os.MkdirAll(dir, 0755)
+		if err != nil {
+			panic(err)
+		}
+		re := onion.NewRequestExecutor(reqs, i+1, dir)
+		re.Execute()
+		re.WriteResultsToFile()
+		re.WriteMismatchesToFile()
 	}
-
-	re := onion.NewRequestExecutor(reqs)
-	re.Execute()
-	re.WriteResultsToFile("results/results.json")
-	re.WriteMismatchesToFile()
 }
 
-func readBifrostReqURLs() []string {
-	file, err := os.Open("replay_logs_car_no_range.tsv")
+func readBifrostReqURLs(fileName string) []string {
+	file, err := os.Open(fileName)
 	if err != nil {
 		panic(fmt.Errorf("failed to open replay logs: %w", err))
 	}

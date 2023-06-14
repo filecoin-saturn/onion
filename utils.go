@@ -43,6 +43,7 @@ func (b *URLBuilder) BuildLassieUrl(bifrostUrl string) string {
 func (b *URLBuilder) BuildL1ShimUrl(bifrostUrl string) string {
 	u := replaceIPInURL(bifrostUrl, b.l1ShimIP)
 	u = switchHTTPStoHTTP(u)
+	u = u + "&nocache=1"
 	return u
 }
 

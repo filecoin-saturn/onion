@@ -28,6 +28,8 @@ type Results struct {
 }
 
 type RequestExecutor struct {
+	dir  string
+	n    int
 	wg   sync.WaitGroup
 	reqs map[string]URLsToTest
 
@@ -37,7 +39,7 @@ type RequestExecutor struct {
 	results map[string]*Results
 }
 
-func NewRequestExecutor(reqs map[string]URLsToTest) *RequestExecutor {
+func NewRequestExecutor(reqs map[string]URLsToTest, n int, dir string) *RequestExecutor {
 	client := &http.Client{
 		Transport: &http.Transport{
 			MaxConnsPerHost:     1000,
@@ -49,6 +51,8 @@ func NewRequestExecutor(reqs map[string]URLsToTest) *RequestExecutor {
 	}
 
 	return &RequestExecutor{
+		dir:     dir,
+		n:       n,
 		reqs:    reqs,
 		results: make(map[string]*Results),
 		client:  client,
@@ -56,14 +60,15 @@ func NewRequestExecutor(reqs map[string]URLsToTest) *RequestExecutor {
 }
 
 func (re *RequestExecutor) Execute() {
-	fmt.Printf("\n Request Executor will execute requests for  %d  unique paths", len(re.reqs))
+	fmt.Printf("\n --------------- Running round %d -------------------------------", re.n)
+	fmt.Printf("\n Run-%d; Request Executor will execute requests for  %d  unique paths", re.n, len(re.reqs))
 	re.wg.Add(4)
 	go re.executeKuboRequests()
 	go re.executeLassieRequests()
 	go re.executeL1ShimRequests()
 	go re.executeL1NginxRequests()
 	re.wg.Wait()
-	fmt.Println("\n Request Executor is Done")
+	fmt.Printf("\n  Run-%d; Request Executor is Done", re.n)
 }
 
 func (re *RequestExecutor) executeLassieRequests() {
@@ -143,7 +148,7 @@ func (c *concurrentExecution) do(path, url, name string) {
 		defer func() {
 			<-c.sem
 			c.wg.Done()
-			fmt.Printf("\n Finished %d requests for %s", c.count.Inc(), name)
+			fmt.Printf("\n Run-%d; Finished %d requests for %s", c.re.n, c.count.Inc(), name)
 		}()
 		result := c.re.executeHTTPRequest(url)
 		c.re.recordResult(path, name, result)
@@ -198,7 +203,7 @@ func (re *RequestExecutor) recordResult(path string, component string, result Re
 	}
 }
 
-func (re *RequestExecutor) WriteResultsToFile(filename string) {
+func (re *RequestExecutor) WriteResultsToFile() {
 	re.mu.Lock()
 	defer re.mu.Unlock()
 
@@ -209,7 +214,7 @@ func (re *RequestExecutor) WriteResultsToFile(filename string) {
 	}
 
 	// create a new file and write the json data to it
-	file, err := os.Create(filename)
+	file, err := os.Create(fmt.Sprintf("%s/results.json", re.dir))
 	if err != nil {
 		panic(err)
 	}
@@ -301,18 +306,21 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 		}
 	}
 
-	writeMismatchF(kuboLassieMismatch, "results/kubo-lassie-mismatch.json")
-	writeMismatchF(lassiShimMismatch, "results/lassie-shim-mismatch.json")
-	writeMismatchF(shimNginxMismatch, "results/shim-nginx-mismatch.json")
+	kl := fmt.Sprintf("%s/kubo-lassie-mismatch.json", re.dir)
+	ls := fmt.Sprintf("%s/lassie-shim-mismatch.json", re.dir)
+	sn := fmt.Sprintf("%s/shim-nginx-mismatch.json", re.dir)
 
-	fmt.Printf("\n Total Unique Requests: %d", len(res))
-	fmt.Printf("\n Total 2xx from Kubo GW: %d", result2xx.kubo)
-	fmt.Printf("\n Total 2xx from Lassie: %d", result2xx.lassie)
-	fmt.Printf("\n Total 2xx from L1 Shim: %d", result2xx.shim)
-	fmt.Printf("\n Total 2xx from L1 Nginx: %d", result2xx.nginx)
+	writeMismatchF(kuboLassieMismatch, kl)
+	writeMismatchF(lassiShimMismatch, ls)
+	writeMismatchF(shimNginxMismatch, sn)
 
-	fmt.Printf("\n Kubo Lassie Mismatch: %d", len(kuboLassieMismatch))
-	fmt.Printf("\n Lassie Shim Mismatch: %d", len(lassiShimMismatch))
-	fmt.Printf("\n Shim Nginx Mismatch: %d", len(shimNginxMismatch))
+	fmt.Printf("\n Run-%d; Total Unique Requests: %d", re.n, len(res))
+	fmt.Printf("\n Run-%d; Total 2xx from Kubo GW: %d", re.n, result2xx.kubo)
+	fmt.Printf("\n Run-%d; Total 2xx from Lassie: %d", re.n, result2xx.lassie)
+	fmt.Printf("\n Run-%d; Total 2xx from L1 Shim: %d", re.n, result2xx.shim)
+	fmt.Printf("\n Run-%d; Total 2xx from L1 Nginx: %d", re.n, result2xx.nginx)
 
+	fmt.Printf("\n Run-%d; Kubo Lassie Mismatch: %d", re.n, len(kuboLassieMismatch))
+	fmt.Printf("\n Run-%d; Lassie Shim Mismatch: %d", re.n, len(lassiShimMismatch))
+	fmt.Printf("\n Run-%d; Shim Nginx Mismatch: %d", re.n, len(shimNginxMismatch))
 }

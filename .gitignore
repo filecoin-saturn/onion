@@ -16,6 +16,8 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+results*/
+cmd/onion/onion
 
 # Go workspace file
 go.work
