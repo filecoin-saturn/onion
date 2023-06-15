@@ -21,6 +21,7 @@ cmd/onion/onion
 onion*
 main*
 out.txt
+cidcontactchecker
 
 # Go workspace file
 go.work

@@ -25,8 +25,7 @@ func NewURLBuilder(lassieIP, l1ShimIP, l1NginxIP string) *URLBuilder {
 func (ub *URLBuilder) BuildURLsToTest(bifrostReqUrl string) URLsToTest {
 
 	return URLsToTest{
-		Path: parseRequestPath(bifrostReqUrl),
-
+		Path:      parseRequestPath(bifrostReqUrl),
 		Lassie:    ub.BuildLassieUrl(bifrostReqUrl),
 		L1Shim:    ub.BuildL1ShimUrl(bifrostReqUrl),
 		L1Nginx:   ub.BuildL1NginxUrl(bifrostReqUrl),
@@ -92,4 +91,16 @@ func parseRequestPath(bifrostUrl string) string {
 		panic(fmt.Errorf("invalid bifrost url: %s; no path", bifrostUrl))
 	}
 	return u.Path
+}
+
+func ParseCidFromPath(path string) string {
+	split := strings.SplitN(path, "/ipfs/", 2)
+	if len(split) == 2 {
+		x := split[1]
+		split = strings.SplitN(x, "/", -1)
+		fmt.Println("returning", split[0])
+		return split[0]
+	}
+
+	panic("invalid path")
 }
