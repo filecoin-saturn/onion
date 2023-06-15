@@ -13,19 +13,19 @@ import (
 	"time"
 )
 
-var defaultConcurrency = 5
+var defaultConcurrency = 10
 
 type ResponseBytesMismatch struct {
 	LassieShimMismatches map[string]Results
 	ShimNginxMismatches  map[string]Results
 
-	TotalLassieSuccess  int
-	TotalL1ShimSuccess  int
-	TotalL1NginxSuccess int
+	TotalLassieReadSuccess  int
+	TotalL1ShimReadSuccess  int
+	TotalL1NginxReadSuccess int
 
-	TotalLassieError  int
-	TotalL1ShimError  int
-	TotalL1NginxError int
+	TotalLassieReadError  int
+	TotalL1ShimReadError  int
+	TotalL1NginxReadError int
 }
 
 type Result struct {
@@ -83,7 +83,7 @@ func NewRequestExecutor(reqs map[string]URLsToTest, n int, dir string, rr bool) 
 
 func (re *RequestExecutor) Execute() {
 	fmt.Printf("\n --------------- Running round %d -------------------------------", re.n)
-	fmt.Printf("\n Run-%d; Request Executor will execute requests for  %d  unique paths", re.n, len(re.reqs))
+	fmt.Printf("\n Run-%d; Request Executor will execute requests for  %d  unique paths with rr flag %t", re.n, len(re.reqs), re.readResponse)
 
 	sem := make(chan struct{}, defaultConcurrency)
 	count := atomic.NewInt32(0)
@@ -117,7 +117,6 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 	addResultF := func(result Result, component string) {
 		re.mu.Lock()
 		defer re.mu.Unlock()
-
 		_, ok := re.results[path]
 		if !ok {
 			re.results[path] = &Results{}
@@ -137,24 +136,26 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(4)
+	wg.Add(3)
 
 	// Kubo
-	go func() {
-		defer wg.Done()
-		result := re.executeHTTPRequest(urls.KuboGWUrl, true)
-		addResultF(result, "kubogw")
-		fmt.Printf("\n  Run-%d; Request Executor is done executing request %d for Kubo", re.n, count)
-	}()
+	if !re.readResponse {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			result := re.executeHTTPRequest(urls.KuboGWUrl, true)
+			addResultF(result, "kubogw")
+			fmt.Printf("\n  Run-%d; Request Executor is done executing request %d for Kubo", re.n, count)
+		}()
+	}
 
 	// Lassie
 	go func() {
 		defer wg.Done()
 		result := re.executeHTTPRequest(urls.Lassie, false)
-
-		fmt.Printf("\n  Run-%d; Got %d bytes from Lassie", re.n, len(result.ResponseBody))
-
 		lassieRbs = result.ResponseBody
+		fmt.Printf("\n  Run-%d; Got %d bytes from Lassie for request %d", re.n, len(lassieRbs), count)
+
 		result.ResponseBody = nil
 		addResultF(result, "lassie")
 		fmt.Printf("\n  Run-%d; Request Executor is done executing request %d for Lassie", re.n, count)
@@ -165,7 +166,7 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 		defer wg.Done()
 		result := re.executeHTTPRequest(urls.L1Shim, false)
 
-		fmt.Printf("\n  Run-%d; Got %d bytes from L1 Shim", re.n, len(result.ResponseBody))
+		fmt.Printf("\n  Run-%d; Got %d bytes from L1 Shim for request %d", re.n, len(result.ResponseBody), count)
 
 		l1ShimRbs = result.ResponseBody
 		result.ResponseBody = nil
@@ -178,7 +179,7 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 		defer wg.Done()
 		result := re.executeHTTPRequest(urls.L1Nginx, false)
 
-		fmt.Printf("\n  Run-%d; Got %d bytes from L1 Nginx", re.n, len(result.ResponseBody))
+		fmt.Printf("\n  Run-%d; Got %d bytes from L1 Nginx for request %d", re.n, len(result.ResponseBody), count)
 
 		l1NginxRbs = result.ResponseBody
 		result.ResponseBody = nil
@@ -203,25 +204,25 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 		// lassie response read ok ?
 		if rs.LassieResult.StatusCode == http.StatusOK {
 			if len(rs.LassieResult.ResponseBodyReadError) == 0 {
-				rbm.TotalLassieSuccess++
+				rbm.TotalLassieReadSuccess++
 			} else {
-				rbm.TotalLassieError++
+				rbm.TotalLassieReadError++
 			}
 		}
 
 		if rs.L1ShimResult.StatusCode == http.StatusOK {
 			if len(rs.L1ShimResult.ResponseBodyReadError) == 0 {
-				rbm.TotalL1ShimSuccess++
+				rbm.TotalL1ShimReadSuccess++
 			} else {
-				rbm.TotalL1ShimError++
+				rbm.TotalL1ShimReadError++
 			}
 		}
 
 		if rs.L1NginxResult.StatusCode == http.StatusOK {
 			if len(rs.L1NginxResult.ResponseBodyReadError) == 0 {
-				rbm.TotalL1NginxSuccess++
+				rbm.TotalL1NginxReadSuccess++
 			} else {
-				rbm.TotalL1NginxError++
+				rbm.TotalL1NginxReadError++
 			}
 		}
 
@@ -229,6 +230,7 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 		// if both are 200 and both were able to give responses -> compare bytes
 		if rs.LassieResult.StatusCode == http.StatusOK && rs.L1ShimResult.StatusCode == http.StatusOK &&
 			len(rs.LassieResult.ResponseBodyReadError) == 0 && len(rs.L1ShimResult.ResponseBodyReadError) == 0 {
+			lassieRbs[1] = 'a'
 			if !bytes.Equal(lassieRbs, l1ShimRbs) {
 				rbm.LassieShimMismatches[path] = *rs
 			}
@@ -361,8 +363,10 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 	for path, results := range res {
 		results := *results
 
-		if results.KuboGWResult.StatusCode == http.StatusOK {
-			result2xx.kubo++
+		if !re.readResponse {
+			if results.KuboGWResult.StatusCode == http.StatusOK {
+				result2xx.kubo++
+			}
 		}
 
 		if results.LassieResult.StatusCode == http.StatusOK {
@@ -377,13 +381,15 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 			result2xx.nginx++
 		}
 
-		if results.KuboGWResult.StatusCode == http.StatusOK && results.LassieResult.StatusCode != http.StatusOK {
-			rm := Results{}
-			rm.KuboGWResult = results.KuboGWResult
-			rm.LassieResult = results.LassieResult
+		if !re.readResponse {
+			if results.KuboGWResult.StatusCode == http.StatusOK && results.LassieResult.StatusCode != http.StatusOK {
+				rm := Results{}
+				rm.KuboGWResult = results.KuboGWResult
+				rm.LassieResult = results.LassieResult
 
-			kuboLassieMismatch[path] = rm
-			klMismatchPaths = append(klMismatchPaths, path)
+				kuboLassieMismatch[path] = rm
+				klMismatchPaths = append(klMismatchPaths, path)
+			}
 		}
 
 		if results.LassieResult.StatusCode == http.StatusOK && results.L1ShimResult.StatusCode != http.StatusOK {
