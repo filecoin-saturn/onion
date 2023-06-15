@@ -167,7 +167,8 @@ func (c *concurrentExecution) do(path, url, name string) {
 			c.wg.Done()
 			fmt.Printf("\n Run-%d; Finished %d requests for %s", c.re.n, c.count.Inc(), name)
 		}()
-		result := c.re.executeHTTPRequest(url)
+		// we do not want to read Kubo response bodies
+		result := c.re.executeHTTPRequest(url, name == "kubogw")
 		c.re.recordResult(path, name, result)
 	}()
 }
@@ -181,7 +182,7 @@ func readBody(result *Result, resp *http.Response) ([]byte, error) {
 	return body, nil
 }
 
-func (re *RequestExecutor) executeHTTPRequest(url string) (result Result) {
+func (re *RequestExecutor) executeHTTPRequest(url string, disableBodyRead bool) (result Result) {
 	result = Result{
 		Url: url,
 	}
@@ -204,12 +205,12 @@ func (re *RequestExecutor) executeHTTPRequest(url string) (result Result) {
 		if err == nil {
 			result.ErrorBody = string(errBody)
 		}
-	} else if re.bodyMode == KeepBodySize {
+	} else if !disableBodyRead && re.bodyMode == KeepBodySize {
 		body, err := readBody(&result, resp)
 		if err == nil {
 			result.BodySize = len(body)
 		}
-	} else if re.bodyMode == KeepWholeBody {
+	} else if !disableBodyRead && re.bodyMode == KeepWholeBody {
 		body, err := readBody(&result, resp)
 		if err == nil {
 			result.Body = body
@@ -365,10 +366,6 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 		// assuming Kubo is the source of truth in terms of response body size
 		switch re.bodyMode {
 		case KeepBodySize:
-			if results.KuboGWResult.BodySize != results.LassieResult.BodySize {
-				resultRespSizeMismatch.lassie++
-			}
-
 			if results.LassieResult.BodySize != results.L1ShimResult.BodySize {
 				resultRespSizeMismatch.shim++
 			}
@@ -377,10 +374,6 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 				resultRespSizeMismatch.nginx++
 			}
 		case KeepWholeBody:
-			if !bytes.Equal(results.KuboGWResult.Body, results.LassieResult.Body) {
-				resultRespSizeMismatch.lassie++
-			}
-
 			if !bytes.Equal(results.LassieResult.Body, results.L1ShimResult.Body) {
 				resultRespSizeMismatch.shim++
 			}
@@ -414,7 +407,6 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 	fmt.Printf("\n Run-%d; Shim Nginx Response Code Mismatch: %d", re.n, len(shimNginxMismatch))
 
 	if re.bodyMode != DropBody {
-		fmt.Printf("\n Run-%d; Kubo Lassie Response Body Mismatch: %d", re.n, resultRespSizeMismatch.lassie)
 		fmt.Printf("\n Run-%d; Lassie Shim Response Body Mismatch: %d", re.n, resultRespSizeMismatch.shim)
 		fmt.Printf("\n Run-%d; Shim Nginx Response Body Mismatch: %d", re.n, resultRespSizeMismatch.nginx)
 	}
