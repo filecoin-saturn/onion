@@ -230,7 +230,6 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 		// if both are 200 and both were able to give responses -> compare bytes
 		if rs.LassieResult.StatusCode == http.StatusOK && rs.L1ShimResult.StatusCode == http.StatusOK &&
 			len(rs.LassieResult.ResponseBodyReadError) == 0 && len(rs.L1ShimResult.ResponseBodyReadError) == 0 {
-			lassieRbs[1] = 'a'
 			if !bytes.Equal(lassieRbs, l1ShimRbs) {
 				rbm.LassieShimMismatches[path] = *rs
 			}

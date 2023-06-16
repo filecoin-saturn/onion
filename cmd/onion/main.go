@@ -60,7 +60,7 @@ func main() {
 	bifrostReqUrls := readBifrostReqURLs(f)
 	ub := onion.NewURLBuilder(cfg.LassieHostPort, cfg.L1ShimHostPort, cfg.L1NginxHostPort)
 
-	for _, u := range bifrostReqUrls[1500:] {
+	for _, u := range bifrostReqUrls {
 		o := ub.BuildURLsToTest(u)
 		key := o.Path
 		reqs[key] = o
