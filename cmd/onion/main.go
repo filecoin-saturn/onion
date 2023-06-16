@@ -34,18 +34,20 @@ type Config struct {
 }
 
 func main() {
-	fmt.Println("Starting Onions...\n")
+	fmt.Println("Starting Onion...\n")
 	// Define flags
 	count := flag.Int("c", 0, "Count of requests to send to each component")
 	fileName := flag.String("f", "", "Name of replay file to use")
 	nRuns := flag.Int("n_runs", 0, "Number of times to run the test")
+	readResponse := flag.Bool("read_response", false, "Read the response body")
 
 	// Parse the flags
 	flag.Parse()
 	c := *count
 	f := *fileName
 	n := *nRuns
-	fmt.Printf("count: %d, fileName: %s, nRuns:%d\n", c, f, n)
+	rr := *readResponse
+	fmt.Printf("count: %d, fileName: %s, nRuns:%d, rr:%t\n", c, f, n, rr)
 	if c == 0 || len(f) == 0 || n == 0 {
 		fmt.Printf("Usage: onion -count <count> -replay_file <replay_file> -n_runs <n_runs>\n")
 		os.Exit(1)
@@ -82,7 +84,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		re := onion.NewRequestExecutor(reqs, i+1, dir)
+		re := onion.NewRequestExecutor(reqs, i+1, dir, rr)
 		re.Execute()
 		re.WriteResultsToFile()
 		re.WriteMismatchesToFile()
