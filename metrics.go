@@ -12,14 +12,24 @@ const promPushGwAddr = "http://localhost:9091"
 var (
 	labels = []string{"layer"}
 
-	responseSuccessMetric = prometheus.NewCounterVec(prometheus.CounterOpts{
+	responseCodeSuccessMetric = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: prometheus.BuildFQName("onion", "response_code", "success"),
-		Help: "Successful CID responses observed for a layer",
+		Help: "Successful CID response codes observed for a layer",
 	}, labels)
-	responseMismatchMetric = prometheus.NewCounterVec(prometheus.CounterOpts{
+	responseCodeMismatchMetric = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: prometheus.BuildFQName("onion", "response_code", "mismatch"),
-		Help: "Response mismatches observed for a layer for a given CID",
+		Help: "Response code mismatches for a given CID observed for a layer",
 	}, labels)
+	responseSizeMismatchMetric = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: prometheus.BuildFQName("onion", "response_size", "mismatch"),
+		Help: "Response size mismatches for a given CID observed for a layer",
+	}, labels)
+
+	metrics = []prometheus.Collector{
+		responseCodeMismatchMetric,
+		responseCodeSuccessMetric,
+		responseSizeMismatchMetric,
+	}
 )
 
 func pushMetric(run int, co prometheus.Collector) error {
@@ -30,6 +40,7 @@ func pushMetric(run int, co prometheus.Collector) error {
 }
 
 func init() {
-	prometheus.MustRegister(responseSuccessMetric)
-	prometheus.MustRegister(responseMismatchMetric)
+	for _, m := range metrics {
+		prometheus.MustRegister(m)
+	}
 }
