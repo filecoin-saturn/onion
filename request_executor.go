@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -215,6 +216,7 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 				rbm.TotalLassieReadError++
 			}
 		}
+		responseCodeMetric.WithLabelValues("lassie", strconv.Itoa(rs.LassieResult.StatusCode)).Inc()
 
 		if rs.L1ShimResult.StatusCode == http.StatusOK {
 			if len(rs.L1ShimResult.ResponseBodyReadError) == 0 {
@@ -223,6 +225,7 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 				rbm.TotalL1ShimReadError++
 			}
 		}
+		responseCodeMetric.WithLabelValues("shim", strconv.Itoa(rs.L1ShimResult.StatusCode)).Inc()
 
 		if rs.L1NginxResult.StatusCode == http.StatusOK {
 			if len(rs.L1NginxResult.ResponseBodyReadError) == 0 {
@@ -231,6 +234,7 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 				rbm.TotalL1NginxReadError++
 			}
 		}
+		responseCodeMetric.WithLabelValues("nginx", strconv.Itoa(rs.L1NginxResult.StatusCode)).Inc()
 
 		//  discrepancies
 		// if both are 200 and both were able to give responses -> compare bytes
@@ -381,23 +385,19 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 
 		if !re.readResponse {
 			if results.KuboGWResult.StatusCode == http.StatusOK {
-				responseCodeSuccessMetric.WithLabelValues("kubo").Inc()
 				result2xx.kubo++
 			}
 		}
 
 		if results.LassieResult.StatusCode == http.StatusOK {
-			responseCodeSuccessMetric.WithLabelValues("lassie").Inc()
 			result2xx.lassie++
 		}
 
 		if results.L1ShimResult.StatusCode == http.StatusOK {
-			responseCodeSuccessMetric.WithLabelValues("shim").Inc()
 			result2xx.shim++
 		}
 
 		if results.L1NginxResult.StatusCode == http.StatusOK {
-			responseCodeSuccessMetric.WithLabelValues("nginx").Inc()
 			result2xx.nginx++
 		}
 

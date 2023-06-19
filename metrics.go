@@ -10,24 +10,25 @@ import (
 const promPushGwAddr = "http://localhost:9091"
 
 var (
-	labels = []string{"layer"}
+	codeLabels = []string{"layer", "code"}
+	sizeLabels = []string{"layer"}
 
-	responseCodeSuccessMetric = prometheus.NewCounterVec(prometheus.CounterOpts{
+	responseCodeMetric = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: prometheus.BuildFQName("onion", "response_code", "success"),
-		Help: "Successful CID response codes observed for a layer",
-	}, labels)
+		Help: "Response codes for a given CID observed for a layer",
+	}, codeLabels)
 	responseCodeMismatchMetric = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: prometheus.BuildFQName("onion", "response_code", "mismatch"),
 		Help: "Response code mismatches for a given CID observed for a layer",
-	}, labels)
+	}, codeLabels)
 	responseSizeMismatchMetric = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: prometheus.BuildFQName("onion", "response_size", "mismatch"),
 		Help: "Response size mismatches for a given CID observed for a layer",
-	}, labels)
+	}, sizeLabels)
 
 	metrics = []prometheus.Collector{
+		responseCodeMetric,
 		responseCodeMismatchMetric,
-		responseCodeSuccessMetric,
 		responseSizeMismatchMetric,
 	}
 )
