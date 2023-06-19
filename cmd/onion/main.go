@@ -39,7 +39,7 @@ func main() {
 	count := flag.Int("c", 0, "Count of requests to send to each component")
 	fileName := flag.String("f", "", "Name of replay file to use")
 	nRuns := flag.Int("n_runs", 0, "Number of times to run the test")
-	readResponse := flag.Bool("read_response", false, "Read the response body")
+	readResponse := flag.Bool("rr", false, "Read the response body")
 
 	// Parse the flags
 	flag.Parse()
@@ -49,7 +49,7 @@ func main() {
 	rr := *readResponse
 	fmt.Printf("count: %d, fileName: %s, nRuns:%d, rr:%t\n", c, f, n, rr)
 	if c == 0 || len(f) == 0 || n == 0 {
-		fmt.Printf("Usage: onion -count <count> -replay_file <replay_file> -n_runs <n_runs>\n")
+		fmt.Printf("Usage: onion -c=<count> -f=<replay_file> -n_runs=<n_runs> -rr(read_response: true if doing response bytes comparisions)\n")
 		os.Exit(1)
 	}
 
@@ -84,7 +84,14 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		re := onion.NewRequestExecutor(reqs, i+1, dir, rr)
+
+		rrdir := fmt.Sprintf("results/results-%d/response_reads", i+1)
+		err = os.MkdirAll(rrdir, 0755)
+		if err != nil {
+			panic(err)
+		}
+
+		re := onion.NewRequestExecutor(reqs, i+1, dir, rrdir, rr)
 		re.Execute()
 		re.WriteResultsToFile()
 		re.WriteMismatchesToFile()
@@ -102,9 +109,10 @@ func readBifrostReqURLs(fileName string) []string {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
-		fields := strings.Split(line, "\t")
 
-		u := fields[20]
+		u := line
+		u = strings.Trim(u, "\"")
+
 		if len(u) == 0 {
 			panic(fmt.Errorf("invalid bifrost url: %s", u))
 		}

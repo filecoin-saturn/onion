@@ -16,8 +16,11 @@ import (
 var defaultConcurrency = 10
 
 type ResponseBytesMismatch struct {
-	LassieShimMismatches map[string]Results
-	ShimNginxMismatches  map[string]Results
+	LassieShimMismatches    map[string]Results
+	LassieShimMismatchPaths []string
+
+	ShimNginxMismatches    map[string]Results
+	ShimNginxMismatchPaths []string
 
 	TotalLassieReadSuccess  int
 	TotalL1ShimReadSuccess  int
@@ -36,6 +39,7 @@ type Result struct {
 
 	ResponseBodyReadError string
 	ResponseBody          []byte
+	ResponseSize          uint64
 }
 
 type Results struct {
@@ -48,6 +52,7 @@ type Results struct {
 type RequestExecutor struct {
 	readResponse bool
 	dir          string
+	rrdir        string
 	n            int
 	reqs         map[string]URLsToTest
 
@@ -55,10 +60,10 @@ type RequestExecutor struct {
 
 	mu            sync.Mutex
 	results       map[string]*Results
-	responseReads map[string]ResponseBytesMismatch
+	responseReads *ResponseBytesMismatch
 }
 
-func NewRequestExecutor(reqs map[string]URLsToTest, n int, dir string, rr bool) *RequestExecutor {
+func NewRequestExecutor(reqs map[string]URLsToTest, n int, dir string, rrdir string, rr bool) *RequestExecutor {
 	client := &http.Client{
 		Transport: &http.Transport{
 			MaxConnsPerHost:     1000,
@@ -71,13 +76,17 @@ func NewRequestExecutor(reqs map[string]URLsToTest, n int, dir string, rr bool) 
 	}
 
 	return &RequestExecutor{
-		readResponse:  rr,
-		dir:           dir,
-		n:             n,
-		reqs:          reqs,
-		results:       make(map[string]*Results),
-		client:        client,
-		responseReads: make(map[string]ResponseBytesMismatch),
+		readResponse: rr,
+		dir:          dir,
+		rrdir:        rrdir,
+		n:            n,
+		reqs:         reqs,
+		results:      make(map[string]*Results),
+		client:       client,
+		responseReads: &ResponseBytesMismatch{
+			LassieShimMismatches: make(map[string]Results),
+			ShimNginxMismatches:  make(map[string]Results),
+		},
 	}
 }
 
@@ -194,12 +203,8 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 		re.mu.Lock()
 		defer re.mu.Unlock()
 
-		rbm := ResponseBytesMismatch{
-			LassieShimMismatches: make(map[string]Results),
-			ShimNginxMismatches:  make(map[string]Results),
-		}
-
 		rs := re.results[path]
+		rbm := re.responseReads
 
 		// lassie response read ok ?
 		if rs.LassieResult.StatusCode == http.StatusOK {
@@ -231,7 +236,11 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 		if rs.LassieResult.StatusCode == http.StatusOK && rs.L1ShimResult.StatusCode == http.StatusOK &&
 			len(rs.LassieResult.ResponseBodyReadError) == 0 && len(rs.L1ShimResult.ResponseBodyReadError) == 0 {
 			if !bytes.Equal(lassieRbs, l1ShimRbs) {
-				rbm.LassieShimMismatches[path] = *rs
+				rm := Results{}
+				rm.LassieResult = rs.LassieResult
+				rm.L1ShimResult = rs.L1ShimResult
+				rbm.LassieShimMismatches[path] = rm
+				rbm.LassieShimMismatchPaths = append(rbm.LassieShimMismatchPaths, path)
 			}
 		}
 
@@ -239,11 +248,13 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 		if rs.L1ShimResult.StatusCode == http.StatusOK && rs.L1NginxResult.StatusCode == http.StatusOK &&
 			len(rs.L1ShimResult.ResponseBodyReadError) == 0 && len(rs.L1NginxResult.ResponseBodyReadError) == 0 {
 			if !bytes.Equal(l1ShimRbs, l1NginxRbs) {
-				rbm.ShimNginxMismatches[path] = *rs
+				rm := Results{}
+				rm.L1ShimResult = rs.L1ShimResult
+				rm.L1NginxResult = rs.L1NginxResult
+				rbm.ShimNginxMismatches[path] = rm
+				rbm.ShimNginxMismatchPaths = append(rbm.ShimNginxMismatchPaths, path)
 			}
 		}
-
-		re.responseReads[path] = rbm
 	}
 }
 
@@ -270,6 +281,7 @@ func (re *RequestExecutor) executeHTTPRequest(url string, isKuboGW bool) (result
 			return
 		}
 		result.ResponseBody = body
+		result.ResponseSize = uint64(len(body))
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -421,7 +433,39 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 		if rerr != nil {
 			panic(rerr)
 		}
-		if err := os.WriteFile(fmt.Sprintf("%s/response-reads.json", re.dir), bzs, 0755); err != nil {
+		if err := os.WriteFile(fmt.Sprintf("%s/response-reads.json", re.rrdir), bzs, 0755); err != nil {
+			panic(err)
+		}
+
+		bz, err := json.MarshalIndent(re.responseReads.LassieShimMismatchPaths, "", " ")
+		if err != nil {
+			panic(err)
+		}
+		if err := os.WriteFile(fmt.Sprintf("%s/lassie-shim-mismatch-paths.json", re.rrdir), bz, 0755); err != nil {
+			panic(err)
+		}
+
+		bz, err = json.MarshalIndent(re.responseReads.ShimNginxMismatchPaths, "", " ")
+		if err != nil {
+			panic(err)
+		}
+		if err := os.WriteFile(fmt.Sprintf("%s/shim-nginx-mismatch-paths.json", re.rrdir), bz, 0755); err != nil {
+			panic(err)
+		}
+
+		bz, err = json.MarshalIndent(re.responseReads.LassieShimMismatches, "", " ")
+		if err != nil {
+			panic(err)
+		}
+		if err := os.WriteFile(fmt.Sprintf("%s/lassie-shim-mismatches.json", re.rrdir), bz, 0755); err != nil {
+			panic(err)
+		}
+
+		bz, err = json.MarshalIndent(re.responseReads.ShimNginxMismatches, "", " ")
+		if err != nil {
+			panic(err)
+		}
+		if err := os.WriteFile(fmt.Sprintf("%s/shim-nginx-mismatches.json", re.rrdir), bz, 0755); err != nil {
 			panic(err)
 		}
 	}
@@ -431,14 +475,23 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 	writePathsF(snMismatchPaths, fmt.Sprintf("%s/shim-nginx-mismatch-paths.json", re.dir))
 
 	fmt.Printf("\n Run-%d; Total Unique Requests: %d", re.n, len(res))
-	fmt.Printf("\n Run-%d; Total 2xx from Kubo GW: %d", re.n, result2xx.kubo)
+	if !re.readResponse {
+		fmt.Printf("\n Run-%d; Total 2xx from Kubo GW: %d", re.n, result2xx.kubo)
+	}
 	fmt.Printf("\n Run-%d; Total 2xx from Lassie: %d", re.n, result2xx.lassie)
 	fmt.Printf("\n Run-%d; Total 2xx from L1 Shim: %d", re.n, result2xx.shim)
 	fmt.Printf("\n Run-%d; Total 2xx from L1 Nginx: %d", re.n, result2xx.nginx)
 
-	fmt.Printf("\n Run-%d; Kubo Lassie Mismatch: %d", re.n, len(kuboLassieMismatch))
-	fmt.Printf("\n Run-%d; Lassie Shim Mismatch: %d", re.n, len(lassiShimMismatch))
-	fmt.Printf("\n Run-%d; Shim Nginx Mismatch: %d", re.n, len(shimNginxMismatch))
+	if !re.readResponse {
+		fmt.Printf("\n Run-%d; Kubo Lassie 2XX Mismatch: %d", re.n, len(kuboLassieMismatch))
+	}
+	fmt.Printf("\n Run-%d; Lassie Shim 2XX Mismatch: %d", re.n, len(lassiShimMismatch))
+	fmt.Printf("\n Run-%d; Shim Nginx 2XX Mismatch: %d\n", re.n, len(shimNginxMismatch))
+
+	if re.readResponse {
+		fmt.Printf("\n Run-%d; Lassie Shim response size Mismatch: %d\n", re.n, len(re.responseReads.LassieShimMismatchPaths))
+		fmt.Printf("\n Run-%d; Shim Nginx response size Mismatch: %d\n", re.n, len(re.responseReads.ShimNginxMismatchPaths))
+	}
 
 	toplLevel := struct {
 		Kubo2XX   int
