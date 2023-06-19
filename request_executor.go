@@ -5,12 +5,13 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"go.uber.org/atomic"
 	"io"
 	"net/http"
 	"os"
 	"sync"
 	"time"
+
+	"go.uber.org/atomic"
 )
 
 var defaultConcurrency = 10
@@ -376,19 +377,23 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 
 		if !re.readResponse {
 			if results.KuboGWResult.StatusCode == http.StatusOK {
+				responseSuccessMetric.WithLabelValues("kubo").Inc()
 				result2xx.kubo++
 			}
 		}
 
 		if results.LassieResult.StatusCode == http.StatusOK {
+			responseSuccessMetric.WithLabelValues("lassie").Inc()
 			result2xx.lassie++
 		}
 
 		if results.L1ShimResult.StatusCode == http.StatusOK {
+			responseSuccessMetric.WithLabelValues("shim").Inc()
 			result2xx.shim++
 		}
 
 		if results.L1NginxResult.StatusCode == http.StatusOK {
+			responseSuccessMetric.WithLabelValues("nginx").Inc()
 			result2xx.nginx++
 		}
 
@@ -400,6 +405,8 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 
 				kuboLassieMismatch[path] = rm
 				klMismatchPaths = append(klMismatchPaths, path)
+
+				responseMismatchMetric.WithLabelValues("kubo-lassie").Inc()
 			}
 		}
 
@@ -409,6 +416,8 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 			rm.L1ShimResult = results.L1ShimResult
 			lassiShimMismatch[path] = rm
 			lsMismatchPaths = append(lsMismatchPaths, path)
+
+			responseMismatchMetric.WithLabelValues("lassie-shim").Inc()
 		}
 
 		if results.L1ShimResult.StatusCode == http.StatusOK && results.L1NginxResult.StatusCode != http.StatusOK {
@@ -417,6 +426,8 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 			rm.L1NginxResult = results.L1NginxResult
 			shimNginxMismatch[path] = rm
 			snMismatchPaths = append(snMismatchPaths, path)
+
+			responseMismatchMetric.WithLabelValues("shim-nginx").Inc()
 		}
 	}
 
@@ -519,6 +530,9 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 	if err := os.WriteFile(fmt.Sprintf("%s/top-level-metrics.json", re.dir), bz, 0755); err != nil {
 		panic(err)
 	}
+
+	// write metrics
+	pushMetric(re.n, responseSuccessMetric)
 
 	// write mismatched paths separately
 }
