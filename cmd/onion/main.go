@@ -121,6 +121,11 @@ func readBifrostReqURLs(fileName string) []string {
 			continue
 		}
 
+		// remove requests as per old format
+		if strings.Contains(u, "car-scope") && !strings.Contains(u, "dag-scope") {
+			continue
+		}
+
 		bifrostReqUrls = append(bifrostReqUrls, u)
 	}
 	return bifrostReqUrls

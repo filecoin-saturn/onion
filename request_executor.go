@@ -29,6 +29,14 @@ type ResponseBytesMismatch struct {
 	TotalLassieReadError  int
 	TotalL1ShimReadError  int
 	TotalL1NginxReadError int
+
+	LassieReadErrors  map[string]*Result
+	L1ShimReadErrors  map[string]*Result
+	L1NginxReadErrors map[string]*Result
+
+	LassieReadErrorPaths  []string
+	L1ShimReadErrorPaths  []string
+	L1NginxReadErrorPaths []string
 }
 
 type Result struct {
@@ -86,6 +94,10 @@ func NewRequestExecutor(reqs map[string]URLsToTest, n int, dir string, rrdir str
 		responseReads: &ResponseBytesMismatch{
 			LassieShimMismatches: make(map[string]Results),
 			ShimNginxMismatches:  make(map[string]Results),
+
+			LassieReadErrors:  make(map[string]*Result),
+			L1ShimReadErrors:  make(map[string]*Result),
+			L1NginxReadErrors: make(map[string]*Result),
 		},
 	}
 }
@@ -211,6 +223,8 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 			if len(rs.LassieResult.ResponseBodyReadError) == 0 {
 				rbm.TotalLassieReadSuccess++
 			} else {
+				rbm.LassieReadErrors[path] = rs.LassieResult
+				rbm.LassieReadErrorPaths = append(rbm.LassieReadErrorPaths, path)
 				rbm.TotalLassieReadError++
 			}
 		}
@@ -219,6 +233,8 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 			if len(rs.L1ShimResult.ResponseBodyReadError) == 0 {
 				rbm.TotalL1ShimReadSuccess++
 			} else {
+				rbm.L1ShimReadErrors[path] = rs.L1ShimResult
+				rbm.L1ShimReadErrorPaths = append(rbm.L1ShimReadErrorPaths, path)
 				rbm.TotalL1ShimReadError++
 			}
 		}
@@ -227,6 +243,8 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 			if len(rs.L1NginxResult.ResponseBodyReadError) == 0 {
 				rbm.TotalL1NginxReadSuccess++
 			} else {
+				rbm.L1NginxReadErrors[path] = rs.L1NginxResult
+				rbm.L1NginxReadErrorPaths = append(rbm.L1NginxReadErrorPaths, path)
 				rbm.TotalL1NginxReadError++
 			}
 		}
@@ -468,6 +486,30 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 		if err := os.WriteFile(fmt.Sprintf("%s/shim-nginx-mismatches.json", re.rrdir), bz, 0755); err != nil {
 			panic(err)
 		}
+
+		bz, err = json.MarshalIndent(re.responseReads.LassieReadErrorPaths, "", " ")
+		if err != nil {
+			panic(err)
+		}
+		if err := os.WriteFile(fmt.Sprintf("%s/lassie-2xx-response-read-error-paths.json", re.rrdir), bz, 0755); err != nil {
+			panic(err)
+		}
+
+		bz, err = json.MarshalIndent(re.responseReads.L1ShimReadErrorPaths, "", " ")
+		if err != nil {
+			panic(err)
+		}
+		if err := os.WriteFile(fmt.Sprintf("%s/shim-2xx-response-read-error-paths.json", re.rrdir), bz, 0755); err != nil {
+			panic(err)
+		}
+
+		bz, err = json.MarshalIndent(re.responseReads.L1NginxReadErrorPaths, "", " ")
+		if err != nil {
+			panic(err)
+		}
+		if err := os.WriteFile(fmt.Sprintf("%s/nginx-2xx-response-read-error-paths.json", re.rrdir), bz, 0755); err != nil {
+			panic(err)
+		}
 	}
 
 	writePathsF(klMismatchPaths, fmt.Sprintf("%s/kubo-lassie-mismatch-paths.json", re.dir))
@@ -491,6 +533,10 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 	if re.readResponse {
 		fmt.Printf("\n Run-%d; Lassie Shim response size Mismatch: %d\n", re.n, len(re.responseReads.LassieShimMismatchPaths))
 		fmt.Printf("\n Run-%d; Shim Nginx response size Mismatch: %d\n", re.n, len(re.responseReads.ShimNginxMismatchPaths))
+
+		fmt.Printf("\n Run-%d; Lassie returned 200 but failed to read responses for %d requests", re.n, re.responseReads.TotalLassieReadError)
+		fmt.Printf("\n Run-%d; Shim returned 200 but failed to read responses for %d requests", re.n, re.responseReads.TotalL1ShimReadError)
+		fmt.Printf("\n Run-%d; Nginx returned 200 but failed to read responses for %d requests", re.n, re.responseReads.TotalL1NginxReadError)
 	}
 
 	toplLevel := struct {
