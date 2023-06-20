@@ -32,10 +32,13 @@ var (
 	}
 )
 
-func pushMetric(runID uuid.UUID, co prometheus.Collector) error {
-	return push.New(promPushGwAddr, "onion").
-		Collector(co).
-		Grouping("run", runID.String()).
+func PushMetrics(runID uuid.UUID) error {
+	pusher := push.New(promPushGwAddr, "onion")
+	for _, co := range metrics {
+		pusher.Collector(co)
+	}
+	return pusher.
+		Grouping("run_id", runID.String()).
 		Push()
 }
 

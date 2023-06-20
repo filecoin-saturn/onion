@@ -67,7 +67,7 @@ type RequestExecutor struct {
 	responseReads *ResponseBytesMismatch
 }
 
-func NewRequestExecutor(reqs map[string]URLsToTest, n int, dir string, rrdir string, rr bool) *RequestExecutor {
+func NewRequestExecutor(reqs map[string]URLsToTest, n int, id uuid.UUID, dir string, rrdir string, rr bool) *RequestExecutor {
 	client := &http.Client{
 		Transport: &http.Transport{
 			MaxConnsPerHost:     1000,
@@ -77,11 +77,6 @@ func NewRequestExecutor(reqs map[string]URLsToTest, n int, dir string, rrdir str
 			TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
 		},
 		Timeout: 3 * time.Minute,
-	}
-
-	id, err := uuid.NewUUID()
-	if err != nil {
-		panic(err)
 	}
 
 	return &RequestExecutor{
@@ -224,7 +219,6 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 				rbm.TotalLassieReadError++
 			}
 		}
-		responseCodeMetric.WithLabelValues("lassie", strconv.Itoa(rs.LassieResult.StatusCode)).Inc()
 
 		if rs.L1ShimResult.StatusCode == http.StatusOK {
 			if len(rs.L1ShimResult.ResponseBodyReadError) == 0 {
@@ -233,7 +227,6 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 				rbm.TotalL1ShimReadError++
 			}
 		}
-		responseCodeMetric.WithLabelValues("shim", strconv.Itoa(rs.L1ShimResult.StatusCode)).Inc()
 
 		if rs.L1NginxResult.StatusCode == http.StatusOK {
 			if len(rs.L1NginxResult.ResponseBodyReadError) == 0 {
@@ -242,7 +235,6 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 				rbm.TotalL1NginxReadError++
 			}
 		}
-		responseCodeMetric.WithLabelValues("nginx", strconv.Itoa(rs.L1NginxResult.StatusCode)).Inc()
 
 		//  discrepancies
 		// if both are 200 and both were able to give responses -> compare bytes
@@ -400,14 +392,17 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 		if results.LassieResult.StatusCode == http.StatusOK {
 			result2xx.lassie++
 		}
+		responseCodeMetric.WithLabelValues("lassie", strconv.Itoa(results.LassieResult.StatusCode)).Inc()
 
 		if results.L1ShimResult.StatusCode == http.StatusOK {
 			result2xx.shim++
 		}
+		responseCodeMetric.WithLabelValues("shim", strconv.Itoa(results.L1ShimResult.StatusCode)).Inc()
 
 		if results.L1NginxResult.StatusCode == http.StatusOK {
 			result2xx.nginx++
 		}
+		responseCodeMetric.WithLabelValues("nginx", strconv.Itoa(results.L1NginxResult.StatusCode)).Inc()
 
 		if !re.readResponse {
 			if results.KuboGWResult.StatusCode == http.StatusOK && results.LassieResult.StatusCode != http.StatusOK {
@@ -541,13 +536,6 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 
 	if err := os.WriteFile(fmt.Sprintf("%s/top-level-metrics.json", re.dir), bz, 0755); err != nil {
 		panic(err)
-	}
-
-	// write metrics
-	for _, m := range metrics {
-		if err := pushMetric(re.id, m); err != nil {
-			panic(err)
-		}
 	}
 
 	// write mismatched paths separately
