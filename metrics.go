@@ -1,8 +1,7 @@
 package onion
 
 import (
-	"strconv"
-
+	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/push"
 )
@@ -33,10 +32,10 @@ var (
 	}
 )
 
-func pushMetric(run int, co prometheus.Collector) error {
+func pushMetric(runID uuid.UUID, co prometheus.Collector) error {
 	return push.New(promPushGwAddr, "onion").
 		Collector(co).
-		Grouping("run", strconv.Itoa(run)).
+		Grouping("run", runID.String()).
 		Push()
 }
 

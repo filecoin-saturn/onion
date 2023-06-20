@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"go.uber.org/atomic"
 )
 
@@ -56,6 +57,7 @@ type RequestExecutor struct {
 	dir          string
 	rrdir        string
 	n            int
+	id           uuid.UUID
 	reqs         map[string]URLsToTest
 
 	client *http.Client
@@ -77,11 +79,17 @@ func NewRequestExecutor(reqs map[string]URLsToTest, n int, dir string, rrdir str
 		Timeout: 3 * time.Minute,
 	}
 
+	id, err := uuid.NewUUID()
+	if err != nil {
+		panic(err)
+	}
+
 	return &RequestExecutor{
 		readResponse: rr,
 		dir:          dir,
 		rrdir:        rrdir,
 		n:            n,
+		id:           id,
 		reqs:         reqs,
 		results:      make(map[string]*Results),
 		client:       client,
@@ -93,7 +101,7 @@ func NewRequestExecutor(reqs map[string]URLsToTest, n int, dir string, rrdir str
 }
 
 func (re *RequestExecutor) Execute() {
-	fmt.Printf("\n --------------- Running round %d -------------------------------", re.n)
+	fmt.Printf("\n --------------- Running round %d with uuid %s -------------------------------", re.n, re.id)
 	fmt.Printf("\n Run-%d; Request Executor will execute requests for  %d  unique paths with rr flag %t", re.n, len(re.reqs), re.readResponse)
 
 	sem := make(chan struct{}, defaultConcurrency)
@@ -537,7 +545,7 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 
 	// write metrics
 	for _, m := range metrics {
-		if err := pushMetric(re.n, m); err != nil {
+		if err := pushMetric(re.id, m); err != nil {
 			panic(err)
 		}
 	}
