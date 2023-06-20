@@ -121,7 +121,7 @@ func (re *RequestExecutor) Execute() {
 }
 
 func (re *RequestExecutor) executeRequest(path string, count int32) {
-	fmt.Printf("\n  Run-%d; Request Executor is executing request %d", re.n, count)
+	fmt.Printf("\n  Run-%d; Request Executor is executing request %d to %s path", re.n, count, path)
 	urls := re.reqs[path]
 
 	var lassieRbs []byte
@@ -247,7 +247,7 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 				rbm.LassieShimMismatches[path] = rm
 				rbm.LassieShimMismatchPaths = append(rbm.LassieShimMismatchPaths, path)
 
-				responseSizeMismatchMetric.WithLabelValues("lassie-shim").Inc()
+				responseSizeMismatchMetric.WithLabelValues(path, "lassie-shim").Inc()
 			}
 		}
 
@@ -261,7 +261,7 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 				rbm.ShimNginxMismatches[path] = rm
 				rbm.ShimNginxMismatchPaths = append(rbm.ShimNginxMismatchPaths, path)
 
-				responseSizeMismatchMetric.WithLabelValues("shim-nginx").Inc()
+				responseSizeMismatchMetric.WithLabelValues(path, "shim-nginx").Inc()
 			}
 		}
 	}
@@ -387,22 +387,23 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 			if results.KuboGWResult.StatusCode == http.StatusOK {
 				result2xx.kubo++
 			}
+			responseCodeMetric.WithLabelValues(path, "kubo", strconv.Itoa(results.KuboGWResult.StatusCode)).Inc()
 		}
 
 		if results.LassieResult.StatusCode == http.StatusOK {
 			result2xx.lassie++
 		}
-		responseCodeMetric.WithLabelValues("lassie", strconv.Itoa(results.LassieResult.StatusCode)).Inc()
+		responseCodeMetric.WithLabelValues(path, "lassie", strconv.Itoa(results.LassieResult.StatusCode)).Inc()
 
 		if results.L1ShimResult.StatusCode == http.StatusOK {
 			result2xx.shim++
 		}
-		responseCodeMetric.WithLabelValues("shim", strconv.Itoa(results.L1ShimResult.StatusCode)).Inc()
+		responseCodeMetric.WithLabelValues(path, "shim", strconv.Itoa(results.L1ShimResult.StatusCode)).Inc()
 
 		if results.L1NginxResult.StatusCode == http.StatusOK {
 			result2xx.nginx++
 		}
-		responseCodeMetric.WithLabelValues("nginx", strconv.Itoa(results.L1NginxResult.StatusCode)).Inc()
+		responseCodeMetric.WithLabelValues(path, "nginx", strconv.Itoa(results.L1NginxResult.StatusCode)).Inc()
 
 		if !re.readResponse {
 			if results.KuboGWResult.StatusCode == http.StatusOK && results.LassieResult.StatusCode != http.StatusOK {
@@ -413,7 +414,7 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 				kuboLassieMismatch[path] = rm
 				klMismatchPaths = append(klMismatchPaths, path)
 
-				responseCodeMismatchMetric.WithLabelValues("kubo-lassie").Inc()
+				responseCodeMismatchMetric.WithLabelValues(path, "kubo-lassie").Inc()
 			}
 		}
 
@@ -424,7 +425,7 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 			lassiShimMismatch[path] = rm
 			lsMismatchPaths = append(lsMismatchPaths, path)
 
-			responseCodeMismatchMetric.WithLabelValues("lassie-shim").Inc()
+			responseCodeMismatchMetric.WithLabelValues(path, "lassie-shim").Inc()
 		}
 
 		if results.L1ShimResult.StatusCode == http.StatusOK && results.L1NginxResult.StatusCode != http.StatusOK {
@@ -434,7 +435,7 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 			shimNginxMismatch[path] = rm
 			snMismatchPaths = append(snMismatchPaths, path)
 
-			responseCodeMismatchMetric.WithLabelValues("shim-nginx").Inc()
+			responseCodeMismatchMetric.WithLabelValues(path, "shim-nginx").Inc()
 		}
 	}
 

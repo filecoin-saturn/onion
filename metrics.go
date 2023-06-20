@@ -8,22 +8,25 @@ import (
 
 const promPushGwAddr = "http://localhost:9091"
 
+// Note that the purpose of this module is to be useful for a constrained number of test runs
+// Having all these unconstrained labels (i.e. CID and status code to some extent) will result in high cardinality
+// Keep that in mind when using this in a real system
 var (
-	codeLabels = []string{"layer", "code"}
-	sizeLabels = []string{"layer"}
+	labels     = []string{"cid", "layer"}
+	codeLabels = append(labels, "code")
 
 	responseCodeMetric = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: prometheus.BuildFQName("onion", "response_code", "success"),
+		Name: prometheus.BuildFQName("onion", "response_code", "value"),
 		Help: "Response codes for a given CID observed for a layer",
 	}, codeLabels)
 	responseCodeMismatchMetric = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: prometheus.BuildFQName("onion", "response_code", "mismatch"),
 		Help: "Response code mismatches for a given CID observed for a layer",
-	}, codeLabels)
+	}, labels)
 	responseSizeMismatchMetric = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: prometheus.BuildFQName("onion", "response_size", "mismatch"),
 		Help: "Response size mismatches for a given CID observed for a layer",
-	}, sizeLabels)
+	}, labels)
 
 	metrics = []prometheus.Collector{
 		responseCodeMetric,
