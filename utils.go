@@ -98,7 +98,6 @@ func ParseCidFromPath(path string) string {
 	if len(split) == 2 {
 		x := split[1]
 		split = strings.SplitN(x, "/", -1)
-		fmt.Println("returning", split[0])
 		return split[0]
 	}
 
