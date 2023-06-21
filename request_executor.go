@@ -633,7 +633,7 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 	fmt.Printf("\n Run-%d; Lassie Shim response bytes Mismatch: %d", re.n, len(re.responseReads.LassieShimMismatchPaths))
 	fmt.Printf("\n Run-%d; Shim Nginx response bytes Mismatch: %d", re.n, len(re.responseReads.ShimNginxMismatchPaths))
 
-	/*fmt.Println("\n ----------SUMMARY OF RESPONSE READ ERRORS --------------")
+	fmt.Println("\n ----------SUMMARY OF RESPONSE READ ERRORS --------------")
 	fmt.Printf("\n Run-%d; Lassie returned 200 but failed to read responses for %d requests", re.n, re.responseReads.TotalLassieReadError)
 	c = NewCidContactChecker(re.responseReads.LassieReadErrorPaths)
 	c.Check()
@@ -647,7 +647,7 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 	fmt.Printf("\n Run-%d; Nginx returned 200 but failed to read responses for %d requests", re.n, re.responseReads.TotalL1NginxReadError)
 	c = NewCidContactChecker(re.responseReads.L1NginxReadErrorPaths)
 	c.Check()
-	fmt.Println("\n----")*/
+	fmt.Println("\n----")
 
 	fmt.Println("\n ----------DONE; Please see the results/ directory for detailed request logs --------------")
 
