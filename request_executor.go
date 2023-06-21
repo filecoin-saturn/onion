@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strings"
 	"sync"
 	"time"
 )
@@ -280,13 +279,6 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 			} else {
 				rbm.TotalKuboLassieMatches++
 			}
-		} else {
-			fmt.Printf("\n  Run-%d; Error extracting raw bytes from Lassie response for request %d; err=%s, path=%s", re.n, count, err, path)
-			if strings.Contains(err.Error(), "could not find") {
-				if err := os.WriteFile(fmt.Sprintf("lassie-%s.car", ParseCidFromPath(path)), lassieRbs, 0755); err != nil {
-					panic(err)
-				}
-			}
 		}
 	}
 
@@ -303,8 +295,6 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 			} else {
 				rbm.TotalKuboL1ShimMatches++
 			}
-		} else {
-			fmt.Printf("\n  Run-%d; Error extracting raw bytes from L1 Shim response for request %d; err=%s", re.n, count, err)
 		}
 	}
 
@@ -321,8 +311,6 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 			} else {
 				rbm.TotalKuboL1NginxMatches++
 			}
-		} else {
-			fmt.Printf("\n  Run-%d; Error extracting raw bytes from L1 Nginx response for request %d; err=%s", re.n, count, err)
 		}
 	}
 
