@@ -5,12 +5,15 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"go.uber.org/atomic"
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
+	"go.uber.org/atomic"
 )
 
 var defaultConcurrency = 5
@@ -74,6 +77,7 @@ type RequestExecutor struct {
 	dir   string
 	rrdir string
 	n     int
+	id    uuid.UUID
 	reqs  map[string]URLsToTest
 
 	client *http.Client
@@ -83,7 +87,7 @@ type RequestExecutor struct {
 	responseReads *ResponseBytesMismatch
 }
 
-func NewRequestExecutor(reqs map[string]URLsToTest, n int, dir string, rrdir string) *RequestExecutor {
+func NewRequestExecutor(reqs map[string]URLsToTest, n int, id uuid.UUID, dir string, rrdir string) *RequestExecutor {
 	client := &http.Client{
 		Transport: &http.Transport{
 			MaxConnsPerHost:     1000,
@@ -99,6 +103,7 @@ func NewRequestExecutor(reqs map[string]URLsToTest, n int, dir string, rrdir str
 		dir:     dir,
 		rrdir:   rrdir,
 		n:       n,
+		id:      id,
 		reqs:    reqs,
 		results: make(map[string]*Results),
 		client:  client,
@@ -118,7 +123,7 @@ func NewRequestExecutor(reqs map[string]URLsToTest, n int, dir string, rrdir str
 }
 
 func (re *RequestExecutor) Execute() {
-	fmt.Printf("\n --------------- Running round %d -------------------------------", re.n)
+	fmt.Printf("\n --------------- Running round %d with uuid %s -------------------------------", re.n, re.id)
 	fmt.Printf("\n Run-%d; Request Executor will execute requests for  %d  unique paths", re.n, len(re.reqs))
 
 	sem := make(chan struct{}, defaultConcurrency)
@@ -143,7 +148,7 @@ func (re *RequestExecutor) Execute() {
 }
 
 func (re *RequestExecutor) executeRequest(path string, count int32) {
-	fmt.Printf("\n  Run-%d; Request Executor is executing request %d", re.n, count)
+	fmt.Printf("\n  Run-%d; Request Executor is executing request %d to %s path", re.n, count, path)
 	urls := re.reqs[path]
 
 	var lassieRbs []byte
@@ -276,6 +281,8 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 				rm.LassieResult = rs.LassieResult
 				rbm.KuboLassieMismatches[path] = rm
 				rbm.KuboLassieMismatchPaths = append(rbm.KuboLassieMismatchPaths, path)
+
+				responseSizeMismatchMetric.WithLabelValues(path, "kubo-lassie").Inc()
 			} else {
 				rbm.TotalKuboLassieMatches++
 			}
@@ -292,6 +299,8 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 				rm.L1ShimResult = rs.L1ShimResult
 				rbm.KuboL1ShimMismatches[path] = rm
 				rbm.KuboL1ShimMismatchPaths = append(rbm.KuboL1ShimMismatchPaths, path)
+
+				responseSizeMismatchMetric.WithLabelValues(path, "kubo-shim").Inc()
 			} else {
 				rbm.TotalKuboL1ShimMatches++
 			}
@@ -308,6 +317,8 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 				rm.L1NginxResult = rs.L1NginxResult
 				rbm.KuboL1NginxMismatches[path] = rm
 				rbm.KuboL1NginxMismatchPaths = append(rbm.KuboL1NginxMismatchPaths, path)
+
+				responseSizeMismatchMetric.WithLabelValues(path, "kubo-nginx").Inc()
 			} else {
 				rbm.TotalKuboL1NginxMatches++
 			}
@@ -456,39 +467,52 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 
 		if results.KuboGWResult.StatusCode == http.StatusOK && len(results.KuboGWResult.ResponseBodyReadError) == 0 {
 			result2xx.kubo++
+			responseCodeMetric.WithLabelValues(path, "kubo", strconv.Itoa(results.KuboGWResult.StatusCode)).Inc()
+
 			if results.LassieResult.StatusCode != http.StatusOK || len(results.LassieResult.ResponseBodyReadError) != 0 {
 				rm := Results{}
 				rm.KuboGWResult = results.KuboGWResult
 				rm.LassieResult = results.LassieResult
 				kuboLassieMismatch[path] = rm
 				klMismatchPaths = append(klMismatchPaths, path)
+
+				responseCodeMismatchMetric.WithLabelValues(path, "kubo-lassie").Inc()
 			}
 		}
 
 		if results.LassieResult.StatusCode == http.StatusOK && len(results.LassieResult.ResponseBodyReadError) == 0 {
 			result2xx.lassie++
+			responseCodeMetric.WithLabelValues(path, "lassie", strconv.Itoa(results.LassieResult.StatusCode)).Inc()
+
 			if results.L1ShimResult.StatusCode != http.StatusOK || len(results.L1ShimResult.ResponseBodyReadError) != 0 {
 				rm := Results{}
 				rm.LassieResult = results.LassieResult
 				rm.L1ShimResult = results.L1ShimResult
 				lassiShimMismatch[path] = rm
 				lsMismatchPaths = append(lsMismatchPaths, path)
+
+				responseCodeMismatchMetric.WithLabelValues(path, "lassie-shim").Inc()
 			}
 		}
 
 		if results.L1ShimResult.StatusCode == http.StatusOK && len(results.L1ShimResult.ResponseBodyReadError) == 0 {
 			result2xx.shim++
+			responseCodeMetric.WithLabelValues(path, "shim", strconv.Itoa(results.L1ShimResult.StatusCode)).Inc()
+
 			if results.L1NginxResult.StatusCode != http.StatusOK || len(results.L1NginxResult.ResponseBodyReadError) != 0 {
 				rm := Results{}
 				rm.L1ShimResult = results.L1ShimResult
 				rm.L1NginxResult = results.L1NginxResult
 				shimNginxMismatch[path] = rm
 				snMismatchPaths = append(snMismatchPaths, path)
+
+				responseCodeMismatchMetric.WithLabelValues(path, "shim-nginx").Inc()
 			}
 		}
 
 		if results.L1NginxResult.StatusCode == http.StatusOK && len(results.L1NginxResult.ResponseBodyReadError) == 0 {
 			result2xx.nginx++
+			responseCodeMetric.WithLabelValues(path, "nginx", strconv.Itoa(results.L1NginxResult.StatusCode)).Inc()
 		}
 	}
 

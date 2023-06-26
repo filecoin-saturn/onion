@@ -4,13 +4,15 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"github.com/filecoin-saturn/onion"
-	"github.com/pelletier/go-toml"
-	"github.com/prometheus/client_golang/prometheus"
 	"io"
 	"net"
 	"os"
 	"strings"
+
+	"github.com/filecoin-saturn/onion"
+	"github.com/google/uuid"
+	"github.com/pelletier/go-toml"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
@@ -89,10 +91,19 @@ func main() {
 			panic(err)
 		}
 
-		re := onion.NewRequestExecutor(reqs, i+1, dir, rrdir)
+		id, err := uuid.NewUUID()
+		if err != nil {
+			panic(err)
+		}
+
+		re := onion.NewRequestExecutor(reqs, i+1, id, dir, rrdir)
 		re.Execute()
 		re.WriteResultsToFile()
 		re.WriteMismatchesToFile()
+		// write metrics
+		if err := onion.PushMetrics(id); err != nil {
+			panic(err)
+		}
 	}
 }
 
