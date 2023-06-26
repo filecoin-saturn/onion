@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-var defaultConcurrency = 5
+var defaultConcurrency = 6
 
 type ResponseBytesMismatch struct {
 	KuboLassieMismatches    map[string]Results
@@ -25,6 +25,9 @@ type ResponseBytesMismatch struct {
 	KuboL1NginxMismatches    map[string]Results
 	KuboL1NginxMismatchPaths []string
 
+	KuboBifrostMismatches    map[string]Results
+	KuboBifrostMismatchPaths []string
+
 	LassieShimMismatches    map[string]Results
 	LassieShimMismatchPaths []string
 
@@ -34,22 +37,27 @@ type ResponseBytesMismatch struct {
 	TotalLassieReadSuccess  int
 	TotalL1ShimReadSuccess  int
 	TotalL1NginxReadSuccess int
+	TotalBifrostReadSuccess int
 
 	TotalLassieReadError  int
 	TotalL1ShimReadError  int
 	TotalL1NginxReadError int
+	TotalBifrostReadError int
 
 	LassieReadErrors  map[string]*Result
 	L1ShimReadErrors  map[string]*Result
 	L1NginxReadErrors map[string]*Result
+	BifrostReadErrors map[string]*Result
 
 	LassieReadErrorPaths  []string
 	L1ShimReadErrorPaths  []string
 	L1NginxReadErrorPaths []string
+	BifrostReadErrorPaths []string
 
 	TotalKuboLassieMatches  int
 	TotalKuboL1ShimMatches  int
 	TotalKuboL1NginxMatches int
+	TotalKuboBifrostMatches int
 }
 
 type Result struct {
@@ -68,6 +76,8 @@ type Results struct {
 	LassieResult  *Result
 	L1ShimResult  *Result
 	L1NginxResult *Result
+
+	BifrostResult *Result
 }
 
 type RequestExecutor struct {
@@ -110,9 +120,11 @@ func NewRequestExecutor(reqs map[string]URLsToTest, n int, dir string, rrdir str
 			LassieReadErrors:  make(map[string]*Result),
 			L1ShimReadErrors:  make(map[string]*Result),
 			L1NginxReadErrors: make(map[string]*Result),
+			BifrostReadErrors: make(map[string]*Result),
 
 			KuboL1ShimMismatches:  make(map[string]Results),
 			KuboL1NginxMismatches: make(map[string]Results),
+			KuboBifrostMismatches: make(map[string]Results),
 		},
 	}
 }
@@ -150,6 +162,7 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 	var l1ShimRbs []byte
 	var l1NginxRbs []byte
 	var kuboGWRbs []byte
+	var bifrostRbs []byte
 
 	addResultF := func(result Result, component string) {
 		re.mu.Lock()
@@ -169,27 +182,39 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 			rs.KuboGWResult = &result
 		case "l1nginx":
 			rs.L1NginxResult = &result
+		case "bifrost":
+			rs.BifrostResult = &result
 		}
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(4)
+	wg.Add(5)
 
 	// Kubo
-
 	go func() {
 		defer wg.Done()
-		result := re.executeHTTPRequest(urls.KuboGWUrl, true)
+		result := re.executeHTTPRequest(urls.KuboGWUrl)
 		kuboGWRbs = result.ResponseBody
 		result.ResponseBody = nil
 		addResultF(result, "kubogw")
 		fmt.Printf("\n  Run-%d; Request Executor is done executing request %d for Kubo", re.n, count)
 	}()
 
+	// Bifrost
+	go func() {
+		defer wg.Done()
+		result := re.executeHTTPRequest(urls.BifrostURL)
+		bifrostRbs = result.ResponseBody
+		fmt.Printf("\n  Run-%d; Got %d bytes from Bifrost for request %d", re.n, len(bifrostRbs), count)
+		result.ResponseBody = nil
+		addResultF(result, "bifrost")
+		fmt.Printf("\n  Run-%d; Request Executor is done executing request %d for Bifrost", re.n, count)
+	}()
+
 	// Lassie
 	go func() {
 		defer wg.Done()
-		result := re.executeHTTPRequest(urls.Lassie, false)
+		result := re.executeHTTPRequest(urls.Lassie)
 		lassieRbs = result.ResponseBody
 		fmt.Printf("\n  Run-%d; Got %d bytes from Lassie for request %d", re.n, len(lassieRbs), count)
 
@@ -201,7 +226,7 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 	// L1 Shim
 	go func() {
 		defer wg.Done()
-		result := re.executeHTTPRequest(urls.L1Shim, false)
+		result := re.executeHTTPRequest(urls.L1Shim)
 
 		fmt.Printf("\n  Run-%d; Got %d bytes from L1 Shim for request %d", re.n, len(result.ResponseBody), count)
 
@@ -214,7 +239,7 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 	// L1 Nginx
 	go func() {
 		defer wg.Done()
-		result := re.executeHTTPRequest(urls.L1Nginx, false)
+		result := re.executeHTTPRequest(urls.L1Nginx)
 
 		fmt.Printf("\n  Run-%d; Got %d bytes from L1 Nginx for request %d", re.n, len(result.ResponseBody), count)
 
@@ -264,6 +289,16 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 		}
 	}
 
+	if rs.BifrostResult.StatusCode == http.StatusOK {
+		if len(rs.BifrostResult.ResponseBodyReadError) == 0 {
+			rbm.TotalBifrostReadSuccess++
+		} else {
+			rbm.BifrostReadErrors[path] = rs.BifrostResult
+			rbm.BifrostReadErrorPaths = append(rbm.BifrostReadErrorPaths, path)
+			rbm.TotalBifrostReadError++
+		}
+	}
+
 	//  discrepancies
 	// if both are 200 and both were able to give responses -> compare bytes
 	if rs.KuboGWResult.StatusCode == http.StatusOK && rs.LassieResult.StatusCode == http.StatusOK &&
@@ -285,7 +320,7 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 	if rs.KuboGWResult.StatusCode == http.StatusOK && rs.L1ShimResult.StatusCode == http.StatusOK &&
 		len(rs.KuboGWResult.ResponseBodyReadError) == 0 && len(rs.L1ShimResult.ResponseBodyReadError) == 0 {
 		raw, err := ExtractRaw(l1ShimRbs)
-		if err == nil {
+		if err == nil && len(raw) > 0 {
 			if !bytes.Equal(kuboGWRbs, raw) {
 				rm := Results{}
 				rm.KuboGWResult = rs.KuboGWResult
@@ -314,6 +349,19 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 		}
 	}
 
+	if rs.KuboGWResult.StatusCode == http.StatusOK && rs.BifrostResult.StatusCode == http.StatusOK &&
+		len(rs.KuboGWResult.ResponseBodyReadError) == 0 && len(rs.BifrostResult.ResponseBodyReadError) == 0 {
+		if !bytes.Equal(kuboGWRbs, bifrostRbs) {
+			rm := Results{}
+			rm.KuboGWResult = rs.KuboGWResult
+			rm.BifrostResult = rs.BifrostResult
+			rbm.KuboBifrostMismatches[path] = rm
+			rbm.KuboBifrostMismatchPaths = append(rbm.KuboBifrostMismatchPaths, path)
+		} else {
+			rbm.TotalKuboBifrostMatches++
+		}
+	}
+
 	if rs.LassieResult.StatusCode == http.StatusOK && rs.L1ShimResult.StatusCode == http.StatusOK &&
 		len(rs.LassieResult.ResponseBodyReadError) == 0 && len(rs.L1ShimResult.ResponseBodyReadError) == 0 {
 		if !bytes.Equal(lassieRbs, l1ShimRbs) {
@@ -338,7 +386,7 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 	}
 }
 
-func (re *RequestExecutor) executeHTTPRequest(url string, isKuboGW bool) (result Result) {
+func (re *RequestExecutor) executeHTTPRequest(url string) (result Result) {
 	result = Result{
 		Url: url,
 	}
@@ -438,15 +486,21 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 	lassiShimMismatch := make(map[string]Results)
 	shimNginxMismatch := make(map[string]Results)
 
+	nginxBifrostMismatch := make(map[string]Results)
+	kuboBifrostMismatch := make(map[string]Results)
+
 	var klMismatchPaths []string
 	var lsMismatchPaths []string
 	var snMismatchPaths []string
+	var nbMismatchPaths []string
+	var kuboBifrostMismatchPaths []string
 
 	type Result2xx struct {
-		kubo   int
-		lassie int
-		shim   int
-		nginx  int
+		kubo    int
+		lassie  int
+		shim    int
+		nginx   int
+		bifrost int
 	}
 
 	result2xx := Result2xx{}
@@ -462,6 +516,14 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 				rm.LassieResult = results.LassieResult
 				kuboLassieMismatch[path] = rm
 				klMismatchPaths = append(klMismatchPaths, path)
+			}
+
+			if results.BifrostResult.StatusCode != http.StatusOK || len(results.BifrostResult.ResponseBodyReadError) != 0 {
+				rm := Results{}
+				rm.KuboGWResult = results.KuboGWResult
+				rm.BifrostResult = results.BifrostResult
+				kuboBifrostMismatch[path] = rm
+				kuboBifrostMismatchPaths = append(kuboBifrostMismatchPaths, path)
 			}
 		}
 
@@ -489,16 +551,30 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 
 		if results.L1NginxResult.StatusCode == http.StatusOK && len(results.L1NginxResult.ResponseBodyReadError) == 0 {
 			result2xx.nginx++
+			if results.BifrostResult.StatusCode != http.StatusOK || len(results.BifrostResult.ResponseBodyReadError) != 0 {
+				rm := Results{}
+				rm.L1NginxResult = results.L1NginxResult
+				rm.BifrostResult = results.BifrostResult
+				nginxBifrostMismatch[path] = rm
+				nbMismatchPaths = append(nbMismatchPaths, path)
+			}
+		}
+
+		if results.BifrostResult.StatusCode == http.StatusOK && len(results.BifrostResult.ResponseBodyReadError) == 0 {
+			result2xx.bifrost++
 		}
 	}
 
 	kl := fmt.Sprintf("%s/kubo-lassie-mismatch.json", re.dir)
 	ls := fmt.Sprintf("%s/lassie-shim-mismatch.json", re.dir)
 	sn := fmt.Sprintf("%s/shim-nginx-mismatch.json", re.dir)
+	nb := fmt.Sprintf("%s/nginx-bifrost-mismatch.json", re.dir)
 
 	writeMismatchF(kuboLassieMismatch, kl)
 	writeMismatchF(lassiShimMismatch, ls)
 	writeMismatchF(shimNginxMismatch, sn)
+	writeMismatchF(nginxBifrostMismatch, nb)
+	writeMismatchF(kuboBifrostMismatch, fmt.Sprintf("%s/kubo-bifrost-mismatch.json", re.dir))
 
 	bzs, rerr := json.MarshalIndent(re.responseReads, "", " ")
 	if rerr != nil {
@@ -513,6 +589,30 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 		panic(err)
 	}
 	if err := os.WriteFile(fmt.Sprintf("%s/kubo-lassie-mismatch-paths.json", re.rrdir), bz, 0755); err != nil {
+		panic(err)
+	}
+
+	bz, err = json.MarshalIndent(re.responseReads.KuboBifrostMismatchPaths, "", " ")
+	if err != nil {
+		panic(err)
+	}
+	if err := os.WriteFile(fmt.Sprintf("%s/kubo-bifrost-mismatch-paths.json", re.rrdir), bz, 0755); err != nil {
+		panic(err)
+	}
+
+	bz, err = json.MarshalIndent(re.responseReads.KuboL1NginxMismatchPaths, "", " ")
+	if err != nil {
+		panic(err)
+	}
+	if err := os.WriteFile(fmt.Sprintf("%s/kubo-l1nginx-mismatch-paths.json", re.rrdir), bz, 0755); err != nil {
+		panic(err)
+	}
+
+	bz, err = json.MarshalIndent(re.responseReads.KuboL1ShimMismatchPaths, "", " ")
+	if err != nil {
+		panic(err)
+	}
+	if err := os.WriteFile(fmt.Sprintf("%s/kubo-l1shim-mismatch-paths.json", re.rrdir), bz, 0755); err != nil {
 		panic(err)
 	}
 
@@ -603,9 +703,19 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 		panic(err)
 	}
 
+	bz, err = json.MarshalIndent(re.responseReads.BifrostReadErrors, "", " ")
+	if err != nil {
+		panic(err)
+	}
+	if err := os.WriteFile(fmt.Sprintf("%s/bifrost-2xx-response-read-errors.json", re.rrdir), bz, 0755); err != nil {
+		panic(err)
+	}
+
 	writePathsF(klMismatchPaths, fmt.Sprintf("%s/kubo-lassie-mismatch-paths.json", re.dir))
 	writePathsF(lsMismatchPaths, fmt.Sprintf("%s/lassie-shim-mismatch-paths.json", re.dir))
 	writePathsF(snMismatchPaths, fmt.Sprintf("%s/shim-nginx-mismatch-paths.json", re.dir))
+	writePathsF(nbMismatchPaths, fmt.Sprintf("%s/nginx-bifrost-mismatch-paths.json", re.dir))
+	writePathsF(kuboBifrostMismatchPaths, fmt.Sprintf("%s/kubo-bifrost-mismatch-paths.json", re.dir))
 
 	fmt.Println("\n ------SUMMARY OF SUCCESS------------------")
 	fmt.Printf("\n Run-%d; Total Unique Requests: %d", re.n, len(res))
@@ -613,6 +723,7 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 	fmt.Printf("\n Run-%d; Total 2xx with successful response reads from Lassie: %d", re.n, result2xx.lassie)
 	fmt.Printf("\n Run-%d; Total 2xx with successful response reads from L1 Shim: %d", re.n, result2xx.shim)
 	fmt.Printf("\n Run-%d; Total 2xx with successful response reads from L1 Nginx: %d", re.n, result2xx.nginx)
+	fmt.Printf("\n Run-%d; Total 2xx with successful response reads from Bifrost: %d", re.n, result2xx.bifrost)
 	fmt.Println("\n ------------------------")
 
 	fmt.Printf("\n Run-%d; Kubo <> Lassie (2xx + successful response read) Mismatch: %d", re.n, len(kuboLassieMismatch))
@@ -624,6 +735,12 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 	fmt.Printf("\n Run-%d; Shim <> Nginx (2xx + successful response read) Mismatch: %d\n", re.n, len(shimNginxMismatch))
 	c = NewCidContactChecker(snMismatchPaths)
 	c.Check()
+	fmt.Printf("\n Run-%d; L1 Nginx <> Bifrost (2xx + successful response read) Mismatch: %d", re.n, len(nginxBifrostMismatch))
+	c = NewCidContactChecker(nbMismatchPaths)
+	c.Check()
+	fmt.Printf("\n Run-%d; Kubo <> Bifrost (2xx + successful response read) Mismatch: %d", re.n, len(kuboBifrostMismatch))
+	c = NewCidContactChecker(kuboBifrostMismatchPaths)
+	c.Check()
 	fmt.Println("\n----")
 
 	fmt.Println("\n ----------SUMMARY OF RESPONSE BYTES MISMATCHES --------------")
@@ -632,6 +749,7 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 	fmt.Printf("\n Run-%d; Kubo Nginx response bytes Mismatch(after extracting Nginx CAR): %d", re.n, len(re.responseReads.KuboL1NginxMismatches))
 	fmt.Printf("\n Run-%d; Lassie Shim response bytes Mismatch: %d", re.n, len(re.responseReads.LassieShimMismatchPaths))
 	fmt.Printf("\n Run-%d; Shim Nginx response bytes Mismatch: %d", re.n, len(re.responseReads.ShimNginxMismatchPaths))
+	fmt.Printf("\n Run-%d; Kubo Bifrost response bytes Mismatch: %d", re.n, len(re.responseReads.KuboBifrostMismatches))
 
 	fmt.Println("\n ----------SUMMARY OF RESPONSE READ ERRORS --------------")
 	fmt.Printf("\n Run-%d; Lassie returned 200 but failed to read responses for %d requests", re.n, re.responseReads.TotalLassieReadError)
@@ -649,25 +767,35 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 	c.Check()
 	fmt.Println("\n----")
 
+	fmt.Printf("\n Run-%d; Bifrost returned 200 but failed to read responses for %d requests", re.n, re.responseReads.TotalBifrostReadError)
+	c = NewCidContactChecker(re.responseReads.BifrostReadErrorPaths)
+	c.Check()
+	fmt.Println("\n----")
+
 	fmt.Println("\n ----------DONE; Please see the results/ directory for detailed request logs --------------")
 
 	toplLevel := struct {
-		Kubo2XX   int
-		Lassie2XX int
-		Shim2XX   int
-		Nginx2XX  int
+		Kubo2XX    int
+		Lassie2XX  int
+		Shim2XX    int
+		Nginx2XX   int
+		Bifrost2xx int
 
-		KuboLassieMismatch int
-		LassieShimMismatch int
-		ShimNginxMismatch  int
+		KuboLassieMismatch   int
+		LassieShimMismatch   int
+		ShimNginxMismatch    int
+		NginxBifrostMismatch int
 	}{
-		Kubo2XX:            result2xx.kubo,
-		Lassie2XX:          result2xx.lassie,
-		Shim2XX:            result2xx.shim,
-		Nginx2XX:           result2xx.nginx,
-		KuboLassieMismatch: len(kuboLassieMismatch),
-		LassieShimMismatch: len(lassiShimMismatch),
-		ShimNginxMismatch:  len(shimNginxMismatch),
+		Kubo2XX:    result2xx.kubo,
+		Lassie2XX:  result2xx.lassie,
+		Shim2XX:    result2xx.shim,
+		Nginx2XX:   result2xx.nginx,
+		Bifrost2xx: result2xx.bifrost,
+
+		KuboLassieMismatch:   len(kuboLassieMismatch),
+		LassieShimMismatch:   len(lassiShimMismatch),
+		ShimNginxMismatch:    len(shimNginxMismatch),
+		NginxBifrostMismatch: len(nginxBifrostMismatch),
 	}
 	bz, err = json.MarshalIndent(toplLevel, "", " ")
 	if err != nil {

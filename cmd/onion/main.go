@@ -31,6 +31,7 @@ type Config struct {
 	LassieHostPort  string
 	L1ShimHostPort  string
 	L1NginxHostPort string
+	BifrostHostPort string
 }
 
 func main() {
@@ -56,7 +57,7 @@ func main() {
 	reqs := make(map[string]onion.URLsToTest)
 
 	bifrostReqUrls := readBifrostReqURLs(f)
-	ub := onion.NewURLBuilder(cfg.LassieHostPort, cfg.L1ShimHostPort, cfg.L1NginxHostPort)
+	ub := onion.NewURLBuilder(cfg.LassieHostPort, cfg.L1ShimHostPort, cfg.L1NginxHostPort, cfg.BifrostHostPort)
 
 	for _, u := range bifrostReqUrls {
 		o := ub.BuildURLsToTest(u)
@@ -139,6 +140,9 @@ func getConfig() Config {
 
 		L1NginxIP   string
 		L1NginxPort int64
+
+		BifrostIP   string
+		BifrostPort int64
 	}
 
 	f, err := os.Open("config.toml")
@@ -164,6 +168,9 @@ func getConfig() Config {
 	if net.ParseIP(cfg.L1NginxIP) == nil {
 		panic(fmt.Errorf("invalid l1 nginx ip: %s", cfg.L1NginxIP))
 	}
+	if net.ParseIP(cfg.BifrostIP) == nil {
+		panic(fmt.Errorf("invalid bifrost ip: %s", cfg.BifrostIP))
+	}
 
 	if cfg.LassiePort <= 0 || cfg.LassiePort > 65535 {
 		panic(fmt.Errorf("invalid lassie port: %d", cfg.LassiePort))
@@ -174,10 +181,14 @@ func getConfig() Config {
 	if cfg.L1NginxPort <= 0 || cfg.L1NginxPort > 65535 {
 		panic(fmt.Errorf("invalid l1 nginx port: %d", cfg.L1NginxPort))
 	}
+	if cfg.BifrostPort <= 0 || cfg.BifrostPort > 65535 {
+		panic(fmt.Errorf("invalid bifrost port: %d", cfg.BifrostPort))
+	}
 
 	return Config{
 		LassieHostPort:  fmt.Sprintf("%s:%d", cfg.LassieIP, cfg.LassiePort),
 		L1ShimHostPort:  fmt.Sprintf("%s:%d", cfg.L1ShimIP, cfg.L1ShimPort),
 		L1NginxHostPort: fmt.Sprintf("%s:%d", cfg.L1NginxIP, cfg.L1NginxPort),
+		BifrostHostPort: fmt.Sprintf("%s:%d", cfg.BifrostIP, cfg.BifrostPort),
 	}
 }

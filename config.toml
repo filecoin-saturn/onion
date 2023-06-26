@@ -4,3 +4,5 @@ l1ShimIP="127.0.0.1"
 l1ShimPort=10361
 l1NginxIP="127.0.0.1"
 l1NginxPort=8043
+bifrostIP="127.0.0.1"
+bifrostPort=8081
