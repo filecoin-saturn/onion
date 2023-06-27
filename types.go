@@ -7,4 +7,6 @@ type URLsToTest struct {
 	L1Shim    string
 	L1Nginx   string
 	KuboGWUrl string
+
+	BifrostURL string
 }
