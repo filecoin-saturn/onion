@@ -34,6 +34,9 @@ type ResponseBytesMismatch struct {
 	ShimNginxMismatches    map[string]Results
 	ShimNginxMismatchPaths []string
 
+	NginxBifrostMismatches    map[string]Results
+	NginxBifrostMismatchPaths []string
+
 	TotalLassieReadSuccess  int
 	TotalL1ShimReadSuccess  int
 	TotalL1NginxReadSuccess int
@@ -54,10 +57,11 @@ type ResponseBytesMismatch struct {
 	L1NginxReadErrorPaths []string
 	BifrostReadErrorPaths []string
 
-	TotalKuboLassieMatches  int
-	TotalKuboL1ShimMatches  int
-	TotalKuboL1NginxMatches int
-	TotalKuboBifrostMatches int
+	TotalKuboLassieMatches   int
+	TotalKuboL1ShimMatches   int
+	TotalKuboL1NginxMatches  int
+	TotalKuboBifrostMatches  int
+	TotalNginxBifrostMatches int
 }
 
 type Result struct {
@@ -113,9 +117,10 @@ func NewRequestExecutor(reqs map[string]URLsToTest, n int, dir string, rrdir str
 		results: make(map[string]*Results),
 		client:  client,
 		responseReads: &ResponseBytesMismatch{
-			KuboLassieMismatches: make(map[string]Results),
-			LassieShimMismatches: make(map[string]Results),
-			ShimNginxMismatches:  make(map[string]Results),
+			KuboLassieMismatches:   make(map[string]Results),
+			LassieShimMismatches:   make(map[string]Results),
+			ShimNginxMismatches:    make(map[string]Results),
+			NginxBifrostMismatches: make(map[string]Results),
 
 			LassieReadErrors:  make(map[string]*Result),
 			L1ShimReadErrors:  make(map[string]*Result),
@@ -193,7 +198,7 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 	// Kubo
 	go func() {
 		defer wg.Done()
-		result := re.executeHTTPRequest(urls.KuboGWUrl)
+		result := re.executeHTTPRequest("")
 		kuboGWRbs = result.ResponseBody
 		result.ResponseBody = nil
 		addResultF(result, "kubogw")
@@ -304,7 +309,7 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 	if rs.KuboGWResult.StatusCode == http.StatusOK && rs.LassieResult.StatusCode == http.StatusOK &&
 		len(rs.KuboGWResult.ResponseBodyReadError) == 0 && len(rs.LassieResult.ResponseBodyReadError) == 0 {
 		raw, err := ExtractRaw(lassieRbs)
-		if err == nil {
+		if err == nil && len(raw) > 0 {
 			if !bytes.Equal(kuboGWRbs, raw) {
 				rm := Results{}
 				rm.KuboGWResult = rs.KuboGWResult
@@ -336,7 +341,7 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 	if rs.KuboGWResult.StatusCode == http.StatusOK && rs.L1NginxResult.StatusCode == http.StatusOK &&
 		len(rs.KuboGWResult.ResponseBodyReadError) == 0 && len(rs.L1NginxResult.ResponseBodyReadError) == 0 {
 		raw, err := ExtractRaw(l1NginxRbs)
-		if err == nil {
+		if err == nil && len(raw) > 0 {
 			if !bytes.Equal(kuboGWRbs, raw) {
 				rm := Results{}
 				rm.KuboGWResult = rs.KuboGWResult
@@ -382,6 +387,22 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 			rm.L1NginxResult = rs.L1NginxResult
 			rbm.ShimNginxMismatches[path] = rm
 			rbm.ShimNginxMismatchPaths = append(rbm.ShimNginxMismatchPaths, path)
+		}
+	}
+
+	if rs.L1NginxResult.StatusCode == http.StatusOK && rs.BifrostResult.StatusCode == http.StatusOK &&
+		len(rs.L1NginxResult.ResponseBodyReadError) == 0 && len(rs.BifrostResult.ResponseBodyReadError) == 0 {
+		raw, err := ExtractRaw(l1NginxRbs)
+		if err == nil && len(raw) > 0 {
+			if !bytes.Equal(raw, bifrostRbs) {
+				rm := Results{}
+				rm.L1NginxResult = rs.L1NginxResult
+				rm.BifrostResult = rs.BifrostResult
+				rbm.NginxBifrostMismatches[path] = rm
+				rbm.NginxBifrostMismatchPaths = append(rbm.NginxBifrostMismatchPaths, path)
+			} else {
+				rbm.TotalNginxBifrostMatches++
+			}
 		}
 	}
 }
@@ -656,6 +677,22 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 		panic(err)
 	}
 
+	bz, err = json.MarshalIndent(re.responseReads.NginxBifrostMismatches, "", " ")
+	if err != nil {
+		panic(err)
+	}
+	if err := os.WriteFile(fmt.Sprintf("%s/nginx-bifrost-mismatches.json", re.rrdir), bz, 0755); err != nil {
+		panic(err)
+	}
+
+	bz, err = json.MarshalIndent(re.responseReads.NginxBifrostMismatchPaths, "", " ")
+	if err != nil {
+		panic(err)
+	}
+	if err := os.WriteFile(fmt.Sprintf("%s/nginx-bifrost-mismatch-paths.json", re.rrdir), bz, 0755); err != nil {
+		panic(err)
+	}
+
 	bz, err = json.MarshalIndent(re.responseReads.LassieReadErrorPaths, "", " ")
 	if err != nil {
 		panic(err)
@@ -750,6 +787,7 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 	fmt.Printf("\n Run-%d; Lassie Shim response bytes Mismatch: %d", re.n, len(re.responseReads.LassieShimMismatchPaths))
 	fmt.Printf("\n Run-%d; Shim Nginx response bytes Mismatch: %d", re.n, len(re.responseReads.ShimNginxMismatchPaths))
 	fmt.Printf("\n Run-%d; Kubo Bifrost response bytes Mismatch: %d", re.n, len(re.responseReads.KuboBifrostMismatches))
+	fmt.Printf("\n Run-%d; Nginx Bifrost response bytes Mismatch: %d", re.n, len(re.responseReads.NginxBifrostMismatchPaths))
 
 	fmt.Println("\n ----------SUMMARY OF RESPONSE READ ERRORS --------------")
 	fmt.Printf("\n Run-%d; Lassie returned 200 but failed to read responses for %d requests", re.n, re.responseReads.TotalLassieReadError)
