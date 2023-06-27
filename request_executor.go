@@ -203,7 +203,7 @@ func (re *RequestExecutor) executeRequest(path string, count int32) {
 	// Kubo
 	go func() {
 		defer wg.Done()
-		result := re.executeHTTPRequest("")
+		result := re.executeHTTPRequest(urls.KuboGWUrl)
 		kuboGWRbs = result.ResponseBody
 		result.ResponseBody = nil
 		addResultF(result, "kubogw")
@@ -595,7 +595,7 @@ func (re *RequestExecutor) WriteMismatchesToFile() {
 
 		if results.L1NginxResult.StatusCode == http.StatusOK && len(results.L1NginxResult.ResponseBodyReadError) == 0 {
 			result2xx.nginx++
-responseCodeMetric.WithLabelValues(path, "nginx", strconv.Itoa(results.L1NginxResult.StatusCode)).Inc()
+			responseCodeMetric.WithLabelValues(path, "nginx", strconv.Itoa(results.L1NginxResult.StatusCode)).Inc()
 
 			if results.BifrostResult.StatusCode != http.StatusOK || len(results.BifrostResult.ResponseBodyReadError) != 0 {
 				rm := Results{}
