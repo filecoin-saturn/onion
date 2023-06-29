@@ -10,13 +10,13 @@ and also to ipfs.io and then comparing the responses from the various layers wrt
 These layers include: 
 
 1. Lassie
-2. Saturn L1 Shim without Nginx + Lassie)
-3. Nginx + Saturn L1 shim + Lassie)
+2. Saturn L1 Shim without Nginx + Lassie
+3. Nginx + Saturn L1 shim + Lassie
 4. Bifrost-GW + Saturn Nginx + L1 Shim + Lassie
 
 # How To
 
-1. We use docker compose to bring up all the aforementioned layers/components for Onion.
+1. We use docker compose to bring up all the aforementioned layers/components for RHEA.
    Please clone the `add_onion_tests` branch of the https://github.com/filecoin-saturn/L1-node repo
    and follow the comprehensive instructions on https://github.com/filecoin-saturn/L1-node/tree/add_onion_tests/integration/onion for how to
    bring up the containers
@@ -31,7 +31,7 @@ The default configuration should work fine unless you've made changes to the doc
 ```       
 4. Run `go build ./cmd/onion`
 5. Run `./onion -c={COUNT_OF_UNIQUE_REQUESTS} -f={LOG_FILE_TO_REPLAY} -n_runs=1` to run one round of an Onion test.
-   This will replay requests from the log file to all layers of the onion and also to ipfs.io and publish a report wrt
+   This will replay requests from the log file to all layers of the RHEA stack and also to ipfs.io and publish a report wrt
    response code and response bytes correctness. It will also create multiple files/artefacts in the `results` directory that you can use
    to debug correctness discrepancies
 
