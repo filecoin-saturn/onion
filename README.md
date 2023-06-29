@@ -4,7 +4,7 @@ Onion is a tool to test the various layers of the Decentralised GW(_RHEA_) stack
 together vis a vis ipfs.io to flush out correctness discrepancies across the RHEA stack wrt ipfs.io. 
 
 It does this by replaying traffic that confirms to the verifiable GW spec from a given logfile to the various layers of the RHEA stack
-and also to ipfs.io and comparing the responses from the various layers to ipfs.io to flag correctness discrepancies.
+and also to ipfs.io and then comparing the responses from the various layers wrt ipfs.io to flag correctness discrepancies.
 
 
 These layers include: 
